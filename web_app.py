@@ -25,7 +25,7 @@ hide_st_style = """
 st.markdown(hide_st_style, unsafe_allow_html=True)
 
 #@st.cache
-@st.cache(allow_output_mutation=True)
+#@st.cache(allow_output_mutation=True)
 def fetch_and_clean_data():
        df_elo = pd.read_csv('./web_app_table.csv')
        return df_elo
