@@ -95,7 +95,8 @@ def insert_new_deck(deck, name, atk, contr, rec, cons, combo, resi, typ, db):
        'Elo':1500,
        'History':{}}
       db.put(input_dict)
-      
+
+@st.cache      
 def fetch_and_clean_data(df):
       #df_elo = pd.read_csv('./web_app_table.csv')
       # process data
@@ -118,6 +119,7 @@ def fetch_and_clean_data(df):
        
       return df.fillna(0)
 
+@st.cache
 def sort_hist_cols(hist_cols):
       t = []
       for c in hist_cols:
@@ -128,6 +130,7 @@ def sort_hist_cols(hist_cols):
             out.append(t[i].strftime('%m/%Y'))
       return out
 
+@st.cache
 def make_spider_plot(df):
       categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
       
@@ -151,6 +154,7 @@ def make_spider_plot(df):
       axs.fill(angles, np.append(df, df[0]), 'orange', alpha=0.3)
       return fig
 
+@st.cache
 def semi_circle_plot(val):
       val = np.append(val, sum(val))  # 50% blank
       colors = ['green', 'blue', 'red', "#00172B"]
@@ -168,6 +172,7 @@ def semi_circle_plot(val):
       
       return fig
 
+@st.cache
 def get_plyer_infos(df, name, hist_cols):
       cols_spider = ['Attack', 'Control', 'Recovery', 'Consistensy','Combo', 'Resilience']
       n_wp = df[df['Owner']==name]['Wanderpokal'].sum()
@@ -187,6 +192,7 @@ def get_plyer_infos(df, name, hist_cols):
       fig3 = make_type_histo(df, name)
       return n_wp, n_decks, n_fun, fig, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min
 
+@st.cache
 def make_deck_histo(df):
       n1 = len(df[df['Tier']=='Kartenstapel'])
       n2 = len(df[df['Tier']=='Fun'])
@@ -206,7 +212,8 @@ def make_deck_histo(df):
       axs.spines['left'].set_color('white')
       axs.tick_params(colors='white', which='both')
       return fig
-      
+
+@st.cache      
 def make_type_histo(df, name):
       types = df['Type'].unique()
       n_types = len(types)
