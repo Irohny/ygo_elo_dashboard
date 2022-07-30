@@ -22,8 +22,7 @@ from functions import *
 import os
 from dotenv import load_dotenv
 
-load_dotenv(".env")
-key = os.getenv('key')
+key = st.secrets['key']
 deta = Deta(key)
 db = deta.Base("ygo_elo_database")
 st.set_page_config(page_title='YGO-Elo-Dashboard', page_icon=':trophy:' ,layout='wide')
