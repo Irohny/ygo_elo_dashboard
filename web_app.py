@@ -19,8 +19,6 @@ import streamlit_authenticator as stauth
 import matplotlib.patches as patches
 from deta import Deta
 from functions import *
-import os
-from dotenv import load_dotenv
 
 key = st.secrets['key']
 deta = Deta(key)
