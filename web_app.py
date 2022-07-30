@@ -17,54 +17,22 @@ import pickle
 from pathlib import Path
 import streamlit_authenticator as stauth
 import matplotlib.patches as patches
+from deta import Deta
+from functions import *
+import os
+from dotenv import load_dotenv
 
-def make_spider_plot(df):
-      categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
-      
-      angles = [n / float(6) * 2 * np.pi for n in range(6)]
-      angles += angles[:1]
-      angles = (np.array(angles) + np.pi/2)%(2*np.pi)
-      # Initialise the spider plot
-      fig, axs = plt.subplots(figsize=(1,1), subplot_kw=dict(polar=True))
-      # Draw one axe per variable + add labels
-      plt.xticks(angles[:-1], categories, color='white', size=7)
-      # Draw ylabels
-      #plt.rlabel_position(0)
-      axs.set_yticks([1,2,3, 4, 5])
-      axs.set_yticklabels(['', '', '', '', ''], color="white", size=3)
-      axs.set_ylim([0,5.3])
- 
-      #Plot data
-      axs.plot(angles, np.append(df, df[0]), linewidth=1, linestyle='solid', color='orange')
- 
-      # Fill area
-      axs.fill(angles, np.append(df, df[0]), 'orange', alpha=0.3)
-      return fig
-
-def semi_circle_plot(val):
-      val = np.append(val, sum(val))  # 50% blank
-      colors = ['green', 'blue', 'red', "#00172B"]
-      explode= 0.05*np.ones(len(val))
-      # plot
-      fig = plt.figure(figsize=(8,8))
-      ax = fig.add_subplot(1,1,1)
-      #p = patches.Rectangle((left, bottom), width, height,fill=False, transform=ax.transAxes, clip_on=False)
-
-      ax.pie(val, colors=colors, pctdistance=0.85, explode=explode)
-      ax.text(-1.05, 1.1, f"N {int(val[2]/(0.5*np.sum(val)+1e-7)*1000)/10}%", color='white', fontsize=19)
-      ax.text(-0.1, 1.1, f"U {int(val[1]/(0.5*np.sum(val)+1e-7)*1000)/10}%", color='white', fontsize=19)
-      ax.text(0.65, 1.1, f"S {int(val[0]/(0.5*np.sum(val)+1e-7)*1000)/10}%", color='white', fontsize=19)
-      ax.add_artist(plt.Circle((0, 0), 0.6, color="#00172B"))
-      
-      return fig
-
+load_dotenv(".env")
+key = os.getenv('key')
+deta = Deta(key)
+db = deta.Base("ygo_elo_database")
 st.set_page_config(page_title='YGO-Elo-Dashboard', page_icon=':trophy:' ,layout='wide')
 
 # --- USER AUTHENTICATION ---
 with st.sidebar:
 
-      names = ['Chriss', 'Rebecca Briggs']
-      usernames = ['Chriss', 'rbriggs']
+      names = ['Chriss']
+      usernames = ['Chriss']
       
       file_path = Path(__file__).parent / "hashed_pw.pkl"
       with file_path.open("rb") as file:
@@ -89,26 +57,10 @@ with st.sidebar:
           
 st.title('Yu-Gi-Oh! Elo-Dashbord')
 
-def fetch_and_clean_data():
-       df_elo = pd.read_csv('./web_app_table.csv')
-       # process data
-       cols = df_elo.columns.to_list()
-       df_elo['Elo'] = df_elo['Elo'].astype(int)
-       df_elo['1/4 Differenz'] = df_elo['Elo']-df_elo[cols[-1]]
-       df_elo['1/4 Differenz'] = df_elo['1/4 Differenz'].fillna(0).astype(int)
-       df_elo['1/2 Differenz'] = df_elo['Elo']-df_elo[cols[-2]]
-       df_elo['1/2 Differenz'] = df_elo['1/2 Differenz'].fillna(0).astype(int)
-       df_elo['1 Differenz'] = df_elo['Elo']-df_elo[cols[-4]]
-       df_elo['1 Differenz'] = df_elo['1 Differenz'].fillna(0).astype(int)
-       df_elo['Mean 1 Year'] = np.mean(df_elo[cols[-5:-1]+['Elo']],1)
-       df_elo['Mean 1 Year'] = df_elo['Mean 1 Year'].fillna(0).astype(int)
-       df_elo['Std. 1 Year'] = np.std(df_elo[cols[-5:-1]+['Elo']],1)
-       df_elo['Std. 1 Year'] = df_elo['Std. 1 Year'].fillna(0).astype(int)
-       
-       return df_elo.fillna(0)
- 
 # build data
-df_elo = fetch_and_clean_data()
+df, hist_cols, save_cols = get_all_data(db)
+df_elo = fetch_and_clean_data(df.copy())
+hist_cols = sort_hist_cols(hist_cols)
 df_select = df_elo.copy()
 cols = df_elo.columns.to_list()
 vgl_decks, all_in_one, vgl_player, vgl_style, ges_stats, update_spiele = st.tabs(['Vergleiche die Decks', 'Alles zu einem Deck','Vergleiche die Spieler', 'Vergleiche die Stile','Gesamtstatistik', 'Update neue Spiele'])
@@ -209,12 +161,15 @@ with vgl_decks:
                   tmp = [0]
                   for i in range(len(deck)):
                         idx = int(df_select[df_select['Deck']==deck[i]].index.to_numpy())
-                        tmp = np.append(tmp, df_select.loc[idx, cols[20:-5]+['Elo']].to_numpy())
-                        axs.plot(df_select.loc[idx, cols[20:-5]+['Elo']], label=df_select.at[idx, 'Deck'], lw=3)
+                        tmp = np.append(tmp, df_select.loc[idx, hist_cols+['Elo']].to_numpy())
+                        axs.plot(df_select.loc[idx, hist_cols+['Elo']], label=df_select.at[idx, 'Deck'], lw=3)
                         
                         tmp = np.array(tmp)
                         tmp_min = tmp[tmp>0]
                         axs.set_ylim([0.95*np.min(tmp_min), 1.05*np.max(tmp)])
+                        
+                  axs.set_xticks(range(len(hist_cols)+1))
+                  axs.set_xticklabels(hist_cols+['Elo'], rotation=45)
                   axs.legend(loc='lower left')
                   axs.grid()
                    
@@ -267,7 +222,7 @@ with all_in_one:
             idx_deck = int(df_elo[df_elo['Deck']==deck_i].index.to_numpy())
             deck_cols = st.columns([3,3,3,4,5])
             tmp_df = df_elo.copy()
-            tmp_df = tmp_df[['Deck', 'Elo']].sort_values(by=['Elo'], ascending=False)
+            tmp_df = tmp_df[['Deck', 'Elo']].sort_values(by=['Elo'], ascending=False).reset_index(drop=True)
             platz = int(tmp_df[tmp_df['Deck']==deck_i].index.to_numpy())+1
             percentage = int(platz/len(df_elo)*1000)/10
             with deck_cols[0]:
@@ -275,8 +230,8 @@ with all_in_one:
                   st.subheader(df_elo.at[idx_deck, 'Type'])
                   st.subheader('')
                   st.subheader('Elo-Meilensteine:')
-                  st.caption(f"Beste Elo: {int(df_elo.loc[idx_deck, cols[20:-5]].max())}")
-                  st.caption(f"Schlechteste Elo: {int(df_elo.loc[idx_deck, cols[20:-5]].min())}")
+                  st.caption(f"Beste Elo: {int(df_elo.loc[idx_deck, hist_cols].max())}")
+                  st.caption(f"Schlechteste Elo: {int(df_elo.loc[idx_deck, hist_cols].min())}")
                   st.subheader("")
                   st.subheader("Turnier")
                   st.caption('Wanderpokal:   ' + ':star:'*int(df_elo.at[idx_deck, 'Wanderpokal']))
@@ -300,10 +255,10 @@ with all_in_one:
                   
             with deck_cols[3]:
                   fig, axs = plt.subplots(1,1, figsize=(5, 3))
-                  axs.plot(range(5), df_elo.loc[idx_deck, cols[-9:-5]+['Elo']].to_numpy())
+                  axs.plot(range(5), df_elo.loc[idx_deck, hist_cols[-4:]+['Elo']].to_numpy())
                   axs.set_title('Eloverlauf des letzen Jahres', color='white')
                   axs.set_xticks(range(5))
-                  axs.set_xticklabels(cols[-9:-5]+['Elo'], color='white', rotation=45)
+                  axs.set_xticklabels(hist_cols[-4:]+['Elo'], color='white', rotation=45)
                   axs.set_ylabel('Elo', color="white")
                   axs.grid()
                   axs.spines['bottom'].set_color('white')
@@ -320,68 +275,12 @@ with all_in_one:
                   fig = make_spider_plot(df_elo.loc[idx_deck, categories].astype(int).to_numpy())
                   st.pyplot(fig, transparent=True)
                   
-def get_plyer_infos(df, name, cols):
-      cols_spider = ['Attack', 'Control', 'Recovery', 'Consistensy','Combo', 'Resilience']
-      n_wp = df[df['Owner']==name]['Wanderpokal'].sum()
-      n_fun = df[df['Owner']==name]['Fun Pokal'].sum()
-      act_elo_best = df[df['Owner']==name]['Elo'].astype(int).max()
-      act_elo_min = df[df['Owner']==name]['Elo'].astype(int).min()
-      
-      tmp = df[df['Owner']==name][cols[18:-5]].astype(int).max()
-      hist_elo_best = int(np.max(tmp[tmp>0]))
-      
-      tmp = df[df['Owner']==name][cols[18:-5]].astype(int).min()
-      hist_elo_min = int(np.min(tmp[tmp>0]))
-      
-      n_decks = len(df[df['Owner']==name])
-      fig = make_spider_plot(np.round(df_elo[df_elo['Owner']==name][cols_spider].mean(), 0).astype(int).values)
-      fig2 = make_deck_histo(df[df['Owner']==name])
-      fig3 = make_type_histo(df, name)
-      return n_wp, n_decks, n_fun, fig, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min
-
-def make_deck_histo(df):
-      n1 = len(df[df['Tier']=='Kartenstapel'])
-      n2 = len(df[df['Tier']=='Fun'])
-      n3 = len(df[df['Tier']=='Good'])
-      n4 = len(df[df['Tier']=='Tier 2'])
-      n5 = len(df[df['Tier']=='Tier 1'])
-      n6 = len(df[df['Tier']=='Tier 0'])
-      
-      fig, axs = plt.subplots(1, figsize=(9,9))
-      axs.bar([1,2,3,4,5,6], [n1, n2, n3, n4, n5, n6], color='gray')
-      axs.set_xticks([1,2,3,4,5,6])
-      axs.set_xticklabels(['Kartenstapel', 'Fun', 'Good', 'Tier 2', 'Tier 1', 'Tier 0'], rotation=-45, color='white')
-      axs.set_ylabel('Anzahl Decks', color='white')
-      axs.grid()
-      axs.set_title('Verteilung der Decks auf die Spielstärken', color='white')
-      axs.spines['bottom'].set_color('white')
-      axs.spines['left'].set_color('white')
-      axs.tick_params(colors='white', which='both')
-      return fig
-      
-def make_type_histo(df, name):
-      types = df['Type'].unique()
-      n_types = len(types)
-      fig, axs = plt.subplots(1, figsize=(8,8))
-      n_decks = np.zeros(n_types)
-      for k in range(n_types):
-            n_decks[k] = len(df[(df['Type']==types[k])&(df['Owner']==name)])
-      axs.bar(range(n_types), n_decks, color='gray')
-      axs.set_xticks(range(n_types))
-      axs.set_xticklabels(types, rotation=-45, color='white')
-      axs.set_ylabel('Anzahl Decks', color='white')
-      axs.grid()
-      axs.set_title('Verteilung der Decks auf die Typen', color='white')
-      axs.spines['bottom'].set_color('white')
-      axs.spines['left'].set_color('white')
-      axs.tick_params(colors='white', which='both')
-      return fig
 
 with vgl_player:
       player_cols = st.columns(5)
       # Chriss
       with player_cols[0]:
-            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Christoph', cols)
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Christoph', hist_cols)
             st.header('Chirstoph ')
             st.text(f'Decks in Wertung: {n_decks}')
             df = df_elo[df_elo['Owner']=='Christoph'][['Siege', 'Remis', 'Niederlage']].sum()
@@ -399,7 +298,7 @@ with vgl_player:
             
       # Finn
       with player_cols[1]:
-            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Finn', cols)
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Finn', hist_cols)
             st.header('Finn')
             st.text(f'Decks in Wertung: {n_decks}')
             st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Finn']['Matches'].sum()//2)}")
@@ -418,7 +317,7 @@ with vgl_player:
             
       # Frido
       with player_cols[2]:
-            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Frido', cols)
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Frido', hist_cols)
             st.header('Frido')
             st.text(f'Decks in Wertung: {n_decks}')
             df = df_elo[df_elo['Owner']=='Frido'][['Siege', 'Remis', 'Niederlage']].sum()
@@ -436,7 +335,7 @@ with vgl_player:
 
       # Jan
       with player_cols[3]:
-            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Jan', cols)
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Jan', hist_cols)
             st.header('Jan')
             st.text(f'Decks in Wertung: {n_decks}')
             df = df_elo[df_elo['Owner']=='Jan'][['Siege', 'Remis', 'Niederlage']].sum()
@@ -455,7 +354,7 @@ with vgl_player:
             
       # Thomas
       with player_cols[4]:
-            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Thomas', cols)
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Thomas', hist_cols)
             st.header('Thomas')
             st.text(f'Decks in Wertung: {n_decks}')
             df = df_elo[df_elo['Owner']=='Thomas'][['Siege', 'Remis', 'Niederlage']].sum()
@@ -507,21 +406,6 @@ with vgl_style:
             axs.spines['left'].set_color('white')
             axs.tick_params(colors='white', which='both')
             st.pyplot(fig, transparent=True)
-
-def gauss(x, m, s):
-      return 1/(s*np.sqrt(2*np.pi))*np.exp(-(x-m)**2/(4*s**2))
-
-# Histogramfunktion
-def do_histogram(data, b=10, d=True):
-    counts, bins = np.histogram(data, b, density=d)
-
-    n = np.size(bins)
-    cbins = np.zeros(n-1)
-
-    for ii in range(n-1):
-        cbins[ii] = (bins[ii+1]+bins[ii])/2
-
-    return counts, cbins
 
 with ges_stats:
       Label = ['Kartenstapel','Fun', 'Good', 'Tier 2', 'Tier 1', 'Tier 0']
@@ -658,115 +542,22 @@ with ges_stats:
             
       with col1:
             n = len(df_elo['Deck'].unique())
-            df_max = df_elo[cols[19:-5]].agg(['idxmax', 'max'])
-            df_min = df_elo[df_elo[cols[19:-5]]>0][cols[19:-5]].agg(['idxmin', 'min'])
+            df_max = df_elo[hist_cols+['Elo']].agg(['idxmax', 'max'])
+            df_min = df_elo[df_elo[hist_cols+['Elo']]>0][hist_cols+['Elo']].agg(['idxmin', 'min'])
             st.subheader(f"     Decks in Wertung {n}")
             st.subheader(f"     Matches: {int(df_elo['Matches'].sum())/2}")
             st.subheader(f"     Spiele: {int(df_elo['Siege'].sum()+df_elo['Remis'].sum()+df_elo['Niederlage'].sum())/2}")
             st.subheader('')
             st.subheader(f"     Höchste Elo:             {int(df_max.loc['max', :].max())}, {df_elo.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']}")
-            st.subheader(f"     Aktuelle beste Elo:      {int(df_max.at['max', cols[-7]])}, {df_elo.at[int(df_max.at['idxmax', cols[-7]]), 'Deck']}")
+            st.subheader(f"     Aktuelle beste Elo:      {int(df_max.at['max', 'Elo'])}, {df_elo.at[int(df_max.at['idxmax', 'Elo']), 'Deck']}")
             st.subheader('')
             st.subheader(f"     Niedrigste Elo:          {int(df_min.loc['min', :].min())}, {df_elo.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']}")
-            st.subheader(f"     Aktuelle niedrigste Elo: {int(df_min.loc['min', cols[-7]].min())}, {df_elo.at[df_min.loc['idxmin', cols[-7]], 'Deck']}")
+            st.subheader(f"     Aktuelle niedrigste Elo: {int(df_min.loc['min', 'Elo'].min())}, {df_elo.at[df_min.loc['idxmin', 'Elo'], 'Deck']}")
             
             
             n_decks = len(df_elo['Deck'].unique())
     
-def update_tiers(df):
-      Label = ['Kartenstapel','Fun', 'Good', 'Tier 2', 'Tier 1', 'Tier 0']
-      NCl = len(Label)
-      
-      mean = int(df['Elo'].mean())
-      std = float(df['Elo'].std())
-      bins = np.array([0, mean-2*std, mean-std, mean, mean+std, mean+2*std, 10e6])
-      liste =[]
-      points = []
-      
-      for jj in range(len(df)):    
-          for kk in range(NCl):
-              if(df.at[jj, 'Elo']>=bins[kk] and df.at[jj, 'Elo']<=bins[kk+1]):
-                  liste.append(Label[kk])
-                  break
-      
-      df['Tier'] = liste
-      return df
-      
-def update_elo_ratings(deck1, deck2, erg1, erg2, df_elo):
-      # get index
-      idx1 = int(df_elo[df_elo['Deck']==deck1].index.to_numpy())
-      idx2 = int(df_elo[df_elo['Deck']==deck2].index.to_numpy())
-      # update siege/niederlagen
-      if not erg1 == erg2:
-            df_elo.at[idx1, 'Siege'] += erg1
-            df_elo.at[idx1, 'Niederlage'] += erg2
-            
-            df_elo.at[idx2, 'Siege'] += erg2
-            df_elo.at[idx2, 'Niederlage'] += erg1
-      else:
-            df_elo.at[idx1, 'Remis'] +=erg1
-            df_elo.at[idx2, 'Remis'] +=erg2
-      # update matches
-      df_elo.at[idx1, 'Matches'] += 1
-      df_elo.at[idx2, 'Matches'] += 1
-      # update dgp
-      df_elo.at[idx1, 'dgp'] = (2*df_elo.at[idx1, 'dgp'] + df_elo.at[idx2, 'Elo'])//3
-      df_elo.at[idx2, 'dgp'] = (2*df_elo.at[idx2, 'dgp'] + df_elo.at[idx1, 'Elo'])//3
-      # update elo
-      norm = erg1 + erg2 
-      score1 = erg1/norm
-      score2 = erg2/norm
-      
-      # calculate winning probabilities 
-      # Formula from Chess ELO System
-      alpha = 10**((df_elo.at[idx1, 'Elo']-df_elo.at[idx2, 'Elo'])/400)
-      p1 = alpha/(alpha+1)
-      p2 = 1-p1
-      
-      # Update ELO (Chess Formula)
-      df_elo.at[idx1, 'Elo'] += int(32*(score1-p1))
-      df_elo.at[idx2, 'Elo'] += int(32*(score2-p2))
-      
-      df_elo = update_tiers(df_elo)
-      df_elo[cols[:-5]].to_csv('./web_app_table.csv', index=False)
-            
 
-def update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, cols):
-      idx = int(df_elo[df_elo['Deck']==deck_choose].index.to_numpy())
-      if len(in_stats) > 0:
-            df_elo.at[idx, in_stats] = modif_in
-
-      if len(in_stats_type)>0:
-            df_elo.at[idx, in_stats_type] = new_type
-            
-      df_elo[cols[:-5]].to_csv('./web_app_table.csv', index=False)
-      
-def update_tournament(deck, tour, df, cols):
-      idx = int(df[df['Deck']==deck].index.to_numpy())
-      df.at[idx, tour] += 1
-      df[cols[:-5]].to_csv('./web_app_table.csv', index=False)
-      
-def update_history(name, df, cols):
-      if not name in cols:
-            df[name] = df['Elo']
-      
-            df[cols[:-5]+[name]].to_csv('./web_app_table.csv', index=False)
-      
-def insert_new_deck(new_deck, owner, attack, control, resilience, recovery, combo, deck_type, df, cols):
-      n = len(df)
-      df.at[n, 'Deck'] = new_deck
-      df.at[n, 'Attack'] = attack
-      df.at[n, 'Control'] = control
-      df.at[n, 'Resilience'] = resilience
-      df.at[n, 'Recovery'] = recovery
-      df.at[n, 'Combo'] = combo
-      df.at[n, 'Type'] = deck_type
-      df.at[n, 'Owner'] = owner
-      df.at[n, 'Elo'] = 1500
-      df.at[n, 'Tier'] = 'Tier 2'
-      df = df.fillna(0)
-      df[cols[:-5]].to_csv('./web_app_table.csv', index=False)
-      
 with update_spiele:
       if secrets:
             st.header('Trage neue Spielergebnisse ein: ')
@@ -799,7 +590,7 @@ with update_spiele:
                         
                   with inputs[4]:
                         if st.form_submit_button("Submit"):
-                              update_elo_ratings(deck1, deck2, erg1, erg2, df_elo.copy())
+                              update_elo_ratings(deck1, deck2, erg1, erg2, df_elo, hist_cols, save_cols, db)
                    
             st.header('Trage neuen Turniersieg ein:')
             with st.form('Tourniersieg'):
@@ -815,7 +606,7 @@ with update_spiele:
                         
                   with inputs[4]:
                         if st.form_submit_button("Submit"):
-                              update_tournament(deck_tour, tournament, df_elo.copy(), cols)
+                              update_tournament(deck_tour, tournament, df_elo, save_cols, hist_cols, db)
                   
             
             st.header('Trage neues Deck ein:')
@@ -824,6 +615,8 @@ with update_spiele:
                   with inputs[1]:
                         new_deck = st.text_input('Names des neuen Decks', key='new deck')
                         owner = st.text_input('Names des Spielers', key='player')
+                        deck_type = st.selectbox('Wähle einen Decktype:',
+                                                 options=df_elo['Type'].unique(), key='decktype')
                   with inputs[2]:
                         attack = st.number_input('Attack-Rating', min_value=0, max_value=5, step=1, key='attack')
                         control = st.number_input('Control-Rating', min_value=0, max_value=5, step=1, key='control')
@@ -832,21 +625,20 @@ with update_spiele:
                   with inputs[3]:
                         recovery = st.number_input('Recovery-Rating', min_value=0, max_value=5, step=1, key='recovery')
                         combo = st.number_input('Combo-Rating', min_value=0, max_value=5, step=1, key='combo')
-                        deck_type = st.selectbox('Wähle einen Decktype:',
-                                                 options=df_elo['Type'].unique(), key='decktype')
+                        consistency = st.number_input('Consistency-Rating', min_value=0, max_value=5, step=1, key='consistency')
                         
                   with inputs[4]:
                         if st.form_submit_button("Submit"):
-                              insert_new_deck(new_deck, owner, attack, control, resilience, recovery, combo, deck_type, df_elo.copy(), cols)
+                              insert_new_deck(new_deck, owner, attack, control, recovery, consistency, combo, resilience, deck_type, db)
                               
             st.header('Update History:')
             with st.form('history_update'):
                   inputs = st.columns(6)
                   with inputs[1]:
-                        date = st.text_input('Monta/Jahr des neuen Updates:', key='date')
+                        pass
                   with inputs[4]:
                         if st.form_submit_button("Submit"):
-                              update_history(date, df_elo.copy(), cols)
+                              update_history(df_elo, hist_cols, save_cols, db)
                               
             st.header('Modfiziere Deckstats:')
             with st.form('Mod Stats'):
@@ -874,7 +666,7 @@ with update_spiele:
                         
                   with inputs[4]:
                         if st.form_submit_button("Submit"):
-                              update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, cols)
+                              update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, save_cols, hist_cols, db)
                         
       else:
             st.title('Keine Berechtigung')
