@@ -10,8 +10,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime
+from emoji import emojize
 
-#@st.cache
 def get_all_data(db):
       # get all data
       res = db.fetch()
@@ -130,7 +130,32 @@ def sort_hist_cols(hist_cols):
             out.append(t[i].strftime('%m/%Y'))
       return out
 
-@st.cache
+def plot_elo_history(df_select, deck, hist_cols):
+      # plot
+      fig, axs = plt.subplots(1, figsize=(10,4))
+      axs.spines['bottom'].set_color('white')
+      axs.spines['left'].set_color('white')
+      axs.tick_params(colors='white', which='both')
+      axs.set_xlabel('Month/Year', fontsize=14)
+      axs.set_ylabel('Elo-Rating', fontsize=14)
+      axs.xaxis.label.set_color('white')
+      axs.yaxis.label.set_color('white')
+      tmp = [0]
+      for i in range(len(deck)):
+            idx = int(df_select[df_select['Deck']==deck[i]].index.to_numpy())
+            tmp = np.append(tmp, df_select.loc[idx, hist_cols+['Elo']].to_numpy())
+            axs.plot(df_select.loc[idx, hist_cols+['Elo']], label=df_select.at[idx, 'Deck'], lw=3)
+            
+            tmp = np.array(tmp)
+            tmp_min = tmp[tmp>0]
+            axs.set_ylim([0.95*np.min(tmp_min), 1.05*np.max(tmp)])
+            
+      axs.set_xticks(range(len(hist_cols)+1))
+      axs.set_xticklabels(hist_cols+['Elo'], rotation=45)
+      axs.legend(loc='lower left')
+      axs.grid()
+      return fig
+
 def make_spider_plot(df):
       categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
       
@@ -154,7 +179,6 @@ def make_spider_plot(df):
       axs.fill(angles, np.append(df, df[0]), 'orange', alpha=0.3)
       return fig
 
-@st.cache
 def semi_circle_plot(val):
       val = np.append(val, sum(val))  # 50% blank
       colors = ['green', 'blue', 'red', "#00172B"]
@@ -172,7 +196,6 @@ def semi_circle_plot(val):
       
       return fig
 
-@st.cache
 def get_plyer_infos(df, name, hist_cols):
       cols_spider = ['Attack', 'Control', 'Recovery', 'Consistensy','Combo', 'Resilience']
       n_wp = df[df['Owner']==name]['Wanderpokal'].sum()
@@ -192,7 +215,6 @@ def get_plyer_infos(df, name, hist_cols):
       fig3 = make_type_histo(df, name)
       return n_wp, n_decks, n_fun, fig, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min
 
-@st.cache
 def make_deck_histo(df):
       n1 = len(df[df['Tier']=='Kartenstapel'])
       n2 = len(df[df['Tier']=='Fun'])
@@ -213,7 +235,6 @@ def make_deck_histo(df):
       axs.tick_params(colors='white', which='both')
       return fig
 
-@st.cache      
 def make_type_histo(df, name):
       types = df['Type'].unique()
       n_types = len(types)
@@ -308,3 +329,237 @@ def update_elo_ratings(deck1, deck2, erg1, erg2, df_elo, hist_cols, save_cols, d
       
       update_element(key1, df_elo.loc[idx1, :], save_cols, hist_cols, db)
       update_element(key2, df_elo.loc[idx2, :], save_cols, hist_cols, db)
+      
+def vergleiche_die_decks(df_elo, hist_cols, df_select, deck):
+      plot, stats = st.tabs(['Elo-Verlauf', 'Statistiken'])
+      with plot:
+            with st.container():
+                  fig = plot_elo_history(df_select, deck, hist_cols)
+                  st.subheader('Plot')
+                  st.pyplot(fig, transparent=True) 
+      with stats:   
+            st.markdown('# Überblick')
+            if len(deck) > 0:
+                  n_rows = int(np.ceil(len(deck)/4))
+                  counter = 0
+                  for r in range(n_rows):
+                        columns = st.columns([2,3,2,3,2,3,2,3])
+                        for i in range(4):
+                              if counter >= len(deck):
+                                    break
+                              
+                              idx = int(df_select[df_select['Deck']==deck[counter]].index.to_numpy())
+                              values = df_select.loc[idx, ['Siege', 'Remis', 'Niederlage']].to_list()
+                              
+                              with columns[2*i]:
+                                    st.header(df_select.at[idx, 'Deck']+" :star:"*int(df_select.at[idx, 'Wanderpokal']))
+                                    st.subheader(df_select.at[idx, 'Tier'])
+                                    st.subheader(f"Matches: {int(df_select.at[idx, 'Matches'])}")
+                                    st.subheader(f"Spiele: {int(np.sum(values))}")
+                                    st.metric('Aktuelle Elo', df_select.at[idx, 'Elo'], int(df_select.at[idx, '1/4 Differenz']))
+                                    st.metric('Gegner Stärke', int(df_select.at[idx, 'dgp']))
+                                    st.caption('Wanderpokal:   ' + ':star:'*int(df_select.at[idx, 'Wanderpokal']))
+                                    st.caption('Fun Pokal:     ' + ':star:'*int(df_select.at[idx, 'Fun Pokal']))
+                                    st.caption('Meisterschaft: ' + ':star:'*int(df_select.at[idx, 'Meisterschaft']))
+                                    st.caption('Liga Pokal:    ' + ':star:'*int(df_select.at[idx, 'Liga Pokal']))
+                                    
+                              with columns[2*i+1]:
+                                    st.header(" ")
+                                    st.header(" ")
+                                    
+                                    fig = semi_circle_plot(values)
+                                    st.pyplot(fig, transparent=True)
+                                    
+                                    categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
+                                    fig = make_spider_plot(df_select.loc[idx, categories].astype(int).to_numpy())
+                                    st.pyplot(fig, transparent=True)
+                                    
+                                    counter += 1
+    
+def alles_zu_einem_deck(deck_i, df_elo, hist_cols):
+      if len(deck_i) > 0:
+            idx_deck = int(df_elo[df_elo['Deck']==deck_i].index.to_numpy())
+            deck_cols = st.columns([3,3,3,4,5])
+            tmp_df = df_elo.copy()
+            tmp_df = tmp_df[['Deck', 'Elo']].sort_values(by=['Elo'], ascending=False).reset_index(drop=True)
+            platz = int(tmp_df[tmp_df['Deck']==deck_i].index.to_numpy())+1
+            percentage = int(platz/len(df_elo)*1000)/10
+            with deck_cols[0]:
+                  st.subheader(df_elo.at[idx_deck, 'Tier'])
+                  st.subheader(df_elo.at[idx_deck, 'Type'])
+                  st.subheader('')
+                  st.subheader('Elo-Meilensteine:')
+                  st.caption(f"Beste Elo: {int(df_elo.loc[idx_deck, hist_cols].max())}")
+                  st.caption(f"Schlechteste Elo: {int(df_elo.loc[idx_deck, hist_cols].min())}")
+                  st.subheader("")
+                  st.subheader("Turnier")
+                  st.caption('Wanderpokal:   ' + ':star:'*int(df_elo.at[idx_deck, 'Wanderpokal']))
+                  st.caption('Fun Pokal:     ' + ':star:'*int(df_elo.at[idx_deck, 'Fun Pokal']))
+                  st.caption('Meisterschaft: ' + ':star:'*int(df_elo.at[idx_deck, 'Meisterschaft']))
+                  st.caption('Liga Pokal:    ' + ':star:'*int(df_elo.at[idx_deck, 'Liga Pokal']))
+                  
+            with deck_cols[1]:
+                  st.metric('Aktuelle Elo', df_elo.at[idx_deck, 'Elo'], int(df_elo.at[idx_deck, '1/4 Differenz']))
+                  st.subheader('Spiele & Matches')
+                  st.caption(f"Matches: {int(df_elo.at[idx_deck, 'Matches'])}")
+                  st.caption(f"Spiele: {int(df_elo.at[idx_deck, 'Siege']+df_elo.at[idx_deck, 'Remis']+df_elo.at[idx_deck, 'Niederlage'])}")
+                  
+                  
+            with deck_cols[2]:
+                  st.metric('Gegner Stärke', int(df_elo.at[idx_deck, 'dgp']))
+                  st.subheader('Platzierung:')
+                  st.caption(f"Aktueller Rang: {platz}")
+                  st.caption(f"Obere {percentage}% aller Decks")
+            
+                  
+            with deck_cols[3]:
+                  fig, axs = plt.subplots(1,1, figsize=(5, 3))
+                  axs.plot(range(5), df_elo.loc[idx_deck, hist_cols[-4:]+['Elo']].to_numpy())
+                  axs.set_title('Eloverlauf des letzen Jahres', color='white')
+                  axs.set_xticks(range(5))
+                  axs.set_xticklabels(hist_cols[-4:]+['Elo'], color='white', rotation=45)
+                  axs.set_ylabel('Elo', color="white")
+                  axs.grid()
+                  axs.spines['bottom'].set_color('white')
+                  axs.spines['left'].set_color('white')
+                  axs.tick_params(colors='white', which='both')
+                  st.pyplot(fig, transparent=True)
+                  
+                  fig = semi_circle_plot(df_elo.loc[idx_deck, ['Siege', 'Remis', 'Niederlage']].to_list())
+                  st.text('Spielergebnisse')
+                  st.pyplot(fig, transparent=True)
+                  categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
+                  
+            with deck_cols[4]:
+                  fig = make_spider_plot(df_elo.loc[idx_deck, categories].astype(int).to_numpy())
+                  st.pyplot(fig, transparent=True)
+         
+def vergleiche_die_spieler(df_elo, hist_cols):
+      player_cols = st.columns(5)
+      # Chriss
+      with player_cols[0]:
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Christoph', hist_cols)
+            st.header('Chirstoph ')
+            st.text(f'Decks in Wertung: {n_decks}')
+            df = df_elo[df_elo['Owner']=='Christoph'][['Siege', 'Remis', 'Niederlage']].sum()
+            fig = semi_circle_plot(df.values)
+            st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Christoph']['Matches'].sum()//2)}")
+            st.text(f"Spiele: {int(df.sum()//2)}")
+            st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
+            st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+            st.pyplot(fig1, transparent=True)
+            st.pyplot(fig, transparent=True)
+            st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
+            st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+            st.pyplot(fig2, transparent=True)
+            st.pyplot(fig3, transparent=True)
+            
+      # Finn
+      with player_cols[1]:
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Finn', hist_cols)
+            st.header('Finn')
+            st.text(f'Decks in Wertung: {n_decks}')
+            st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Finn']['Matches'].sum()//2)}")
+            df = df_elo[df_elo['Owner']=='Finn'][['Siege', 'Remis', 'Niederlage']].sum()
+            fig = semi_circle_plot(df.values)
+            st.text(f"Spiele: {int(df.sum()//2)}")
+            st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
+            st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+            st.pyplot(fig1, transparent=True)
+            st.pyplot(fig, transparent=True)
+            st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
+            st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+            st.pyplot(fig2, transparent=True)
+            st.pyplot(fig3, transparent=True)
+
+            
+      # Frido
+      with player_cols[2]:
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Frido', hist_cols)
+            st.header('Frido')
+            st.text(f'Decks in Wertung: {n_decks}')
+            df = df_elo[df_elo['Owner']=='Frido'][['Siege', 'Remis', 'Niederlage']].sum()
+            fig = semi_circle_plot(df.values)
+            st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Frido']['Matches'].sum()//2)}")
+            st.text(f"Spiele: {int(df.sum()//2)}")
+            st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
+            st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+            st.pyplot(fig1, transparent=True)
+            st.pyplot(fig, transparent=True)
+            st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
+            st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+            st.pyplot(fig2, transparent=True)
+            st.pyplot(fig3, transparent=True)
+
+      # Jan
+      with player_cols[3]:
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Jan', hist_cols)
+            st.header('Jan')
+            st.text(f'Decks in Wertung: {n_decks}')
+            df = df_elo[df_elo['Owner']=='Jan'][['Siege', 'Remis', 'Niederlage']].sum()
+            fig = semi_circle_plot(df.values)
+            st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Jan']['Matches'].sum()//2)}")
+            st.text(f"Spiele: {int(df.sum()//2)}")
+            st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
+            st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+            st.pyplot(fig1, transparent=True)
+            st.pyplot(fig, transparent=True)
+            st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
+            st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+            st.pyplot(fig2, transparent=True)
+            st.pyplot(fig3, transparent=True)
+            
+            
+      # Thomas
+      with player_cols[4]:
+            n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = get_plyer_infos(df_elo, 'Thomas', hist_cols)
+            st.header('Thomas')
+            st.text(f'Decks in Wertung: {n_decks}')
+            df = df_elo[df_elo['Owner']=='Thomas'][['Siege', 'Remis', 'Niederlage']].sum()
+            fig = semi_circle_plot(df.values)
+            st.text(f"Matches: {int(df_elo[df_elo['Owner']=='Thomas']['Matches'].sum()//2)}")
+            st.text(f"Spiele: {int(df.sum()//2)}")
+            st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
+            st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+            st.pyplot(fig1, transparent=True)
+            st.pyplot(fig, transparent=True)
+            st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
+            st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+            st.pyplot(fig2, transparent=True)
+            st.pyplot(fig3, transparent=True)
+      
+def vergleiche_stile(df_elo):
+      histo, viobox = st.columns(2)
+      types = df_elo['Type'].unique()
+      with histo:
+            n_types = len(types)
+            fig, axs = plt.subplots(1, figsize=(8,8))
+            n_decks = np.zeros(n_types)
+            for k in range(n_types):
+                  n_decks[k] = len(df_elo[df_elo['Type']==types[k]])
+            axs.bar(range(n_types), n_decks, color='gray')
+            axs.set_xticks(range(n_types))
+            axs.set_xticklabels(types, rotation=-45, color='white')
+            axs.set_ylabel('Anzahl Decks', color='white')
+            axs.grid()
+            axs.set_title('Verteilung der Decks auf die Typen', color='white')
+            axs.spines['bottom'].set_color('white')
+            axs.spines['left'].set_color('white')
+            axs.tick_params(colors='white', which='both')
+            st.pyplot(fig, transparent=True)
+            
+      with viobox:
+            fig, axs = plt.subplots(1, figsize=(8,8))
+            for idx, tmp_type in enumerate(types):
+                  axs.violinplot(df_elo[df_elo['Type']==tmp_type]['Elo'], positions=[idx], showmeans=True, showextrema=False, showmedians=False)
+                  axs.boxplot(df_elo[df_elo['Type']==tmp_type]['Elo'], positions=[idx])
+            axs.set_title('Eloverteilung pro Decktyp', color='white')
+            axs.set_ylabel('Elo-Rating', color='white')
+            axs.set_xticks(range(n_types))
+            axs.set_xticklabels(types, rotation=-45, color='white')
+            axs.grid()
+            
+            axs.spines['bottom'].set_color('white')
+            axs.spines['left'].set_color('white')
+            axs.tick_params(colors='white', which='both')
+            st.pyplot(fig, transparent=True)
