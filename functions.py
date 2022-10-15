@@ -222,8 +222,7 @@ def make_stats_side(df_elo, hist_cols):
       n = len(df_elo['Deck'].unique())
       df_max = df_elo[hist_cols+['Elo']].agg(['idxmax', 'max'])
       df_min = df_elo[df_elo[hist_cols+['Elo']]>0][hist_cols+['Elo']].agg(['idxmin', 'min'])
-
-      st.subheader('Gesamtzahlen')
+      # layout
       cols_layout = st.columns([2,2,2,2,3])
       with cols_layout[0]:
             st.metric("Decks in Wertung", value=f"{n}")
@@ -439,8 +438,8 @@ def update_elo_ratings(deck1, deck2, erg1, erg2, df_elo, hist_cols, save_cols, d
       df_elo.at[idx1, 'Matches'] += 1
       df_elo.at[idx2, 'Matches'] += 1
       # update dgp
-      df_elo.at[idx1, 'dgp'] = (2*df_elo.at[idx1, 'dgp'] + df_elo.at[idx2, 'Elo'])//3
-      df_elo.at[idx2, 'dgp'] = (2*df_elo.at[idx2, 'dgp'] + df_elo.at[idx1, 'Elo'])//3
+      df_elo.at[idx1, 'dgp'] = (df_elo.at[idx1, 'dgp'] + 2*df_elo.at[idx2, 'Elo'])//3
+      df_elo.at[idx2, 'dgp'] = (df_elo.at[idx2, 'dgp'] + 2*df_elo.at[idx1, 'Elo'])//3
       # update elo
       norm = erg1 + erg2 
       score1 = erg1/norm
@@ -704,12 +703,6 @@ def vergleiche_stile(df_elo):
       with c3:
             fig = plot_deck_desity(np.array(df_elo['Elo'].values).squeeze())
             st.pyplot(fig, transparent=True)
-
-def reset_deck():
-      st.session_state['deck'] = []
-      
-def reset_deck_i():
-      st.session_state['deck_i'] = []
       
 @st.cache(hash_funcs={matplotlib.figure.Figure: lambda _: None})
 def plot_deck_desity(values):
