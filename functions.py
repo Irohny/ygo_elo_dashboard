@@ -121,22 +121,33 @@ def insert_new_deck(deck, name, atk, contr, rec, cons, combo, resi, typ, db):
      
 def fetch_and_clean_data(df, hist_cols):
       cols_to_int = ['Elo', 'dgp', 'Wanderpokal', 'Meisterschaft', 'Liga Pokal', 'Fun Pokal', 'Attack', 'Combo', 'Resilience', 'Recovery',
-                        'Consistensy', 'Control','Matches', 'Siege', 'Remis', 'Niederlage']
+                        'Consistensy', 'Control','Matches', 'Siege', 'Remis', 'Niederlage']+hist_cols
       for k in cols_to_int:
-            df[k] = df[k].astype(float).fillna(0)
+            df[k] = df[k].fillna(0).astype(float)
             df[k] = df[k].astype(int)
 
-      df['1/4 Differenz'] = df['Elo']-df[hist_cols[-1]]
-      df['1/4 Differenz'] = df['1/4 Differenz'].fillna(0).astype(int)
-      df['1/2 Differenz'] = df['Elo']-df[hist_cols[2]]
-      df['1/2 Differenz'] = df['1/2 Differenz'].fillna(0).astype(int)
-      df['1 Differenz'] = df['Elo']-df[hist_cols[-4]]
-      df['1 Differenz'] = df['1 Differenz'].fillna(0).astype(int)
+      # last 3 month
+      df['Letzte 3 Monate'] = 0
+      idx = df[df[hist_cols[-1]]>0].index
+      df.loc[idx, 'Letzte 3 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-1]]
+      df['Letzte 3 Monate'] = df['Letzte 3 Monate'].astype(int)
+      # last 6 month
+      df['Letzte 6 Monate'] = 0
+      idx = df[df[hist_cols[-2]]>0].index
+      df.loc[idx, 'Letzte 6 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-2]]
+      df['Letzte 6 Monate'] = df['Letzte 6 Monate'].astype(int)
+      # last 12 month
+      df['Letzte 12 Monate'] = 0
+      idx = df[df[hist_cols[-4]]>0].index
+      df.loc[idx, 'Letzte 12 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-4]]
+      df['Letzte 12 Monate'] = df['Letzte 12 Monate'].astype(int)
+      # mean and std last year
       df['Mean 1 Year'] = np.mean(df[hist_cols[-5:-1]+['Elo']],1)
-      df['Mean 1 Year'] = df['Mean 1 Year'].fillna(0).astype(int)
+      df['Mean 1 Year'] = df['Mean 1 Year'].astype(int)
       df['Std. 1 Year'] = np.std(df[hist_cols[-5:-1]+['Elo']],1)
-      df['Std. 1 Year'] = df['Std. 1 Year'].fillna(0).astype(int)
-       
+      df['Std. 1 Year'] = df['Std. 1 Year'].astype(int)
+      # win rate
+      df['Gewinnrate'] = 100*np.round(df['Siege']/(df['Siege']+df['Remis']+df['Niederlage']), 2)
       return df.fillna(0)
 
 def sort_hist_cols(hist_cols):
@@ -239,7 +250,7 @@ def make_stats_side(df_elo, hist_cols):
       with cols_layout[4]:
             pass
 
-      cols_layout = st.columns([3,3,3,3])
+      cols_layout = st.columns([3,3,3,3,3])
       with cols_layout[0]:
             st.metric(f"Höchste Elo", value=f"{df_elo.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']}", delta=f"{int(df_max.loc['max', :].max())}")
                   
@@ -247,11 +258,14 @@ def make_stats_side(df_elo, hist_cols):
             st.metric(f"Aktuelle beste Elo", value=f"{df_elo.at[int(df_max.at['idxmax', 'Elo']), 'Deck']}", delta=f"{int(df_max.at['max', 'Elo'])}")
             
       with cols_layout[2]:
+            st.metric('Höchste Gewinnrate', value=f"{df_elo.at[int(df_elo['Gewinnrate'].argmax()), 'Deck']}", delta=f"{df_elo['Gewinnrate'].max()}")
+
+      with cols_layout[3]:
             st.metric(f"Niedrigste Elo", value=f"{df_elo.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']}", delta=f"{int(df_min.loc['min', :].min())}")
             
-      with cols_layout[3]:
+      with cols_layout[4]:
             st.metric(f"Aktuelle niedrigste Elo", value=f"{df_elo.at[df_min.loc['idxmin', 'Elo'], 'Deck']}", delta=f"{int(df_min.loc['min', 'Elo'].min())}")
-            
+      
       st.markdown("----")
       types = list(df_elo['Type'].unique())
       colst = st.columns(len(types))
@@ -337,10 +351,10 @@ def make_stats_table(df_elo, ):
       df_select = df_select.reset_index()
       
       with right:
-            df_select = df_select[['Deck', 'Elo', '1/4 Differenz', '1/2 Differenz', '1 Differenz', 'Matches', 'Siege', 'Remis', 'Niederlage']].sort_values(by=['Elo'], ascending=False).reset_index(drop=True)
+            df_select = df_select[['Deck', 'Elo', 'Gewinnrate', 'Letzte 3 Monate', 'Letzte 6 Monate', 'Letzte 12 Monate', 'Matches', 'Siege', 'Remis', 'Niederlage']].sort_values(by=['Elo'], ascending=False).reset_index(drop=True)
             df_select[['Elo', 'Matches', 'Siege', 'Remis', 'Niederlage']] = df_select[['Elo', 'Matches', 'Siege', 'Remis', 'Niederlage']].astype(int)
             df_select['Platz'] = df_select.index.to_numpy()+1
-            AgGrid(df_select[['Platz', 'Deck', 'Elo', '1/4 Differenz', '1/2 Differenz', '1 Differenz', 'Matches', 'Siege', 'Remis', 'Niederlage']], fit_columns_on_grid_load=True, update_mode='NO_UPDATE',
+            AgGrid(df_select[['Platz', 'Deck', 'Elo', 'Gewinnrate', 'Letzte 3 Monate', 'Letzte 6 Monate', 'Letzte 12 Monate', 'Matches', 'Siege', 'Remis', 'Niederlage']], fit_columns_on_grid_load=True, update_mode='NO_UPDATE',
             theme='streamlit', )
 
 @st.cache(hash_funcs={matplotlib.figure.Figure: lambda _: None})
@@ -489,7 +503,7 @@ def vergleiche_die_decks(df_elo, hist_cols, deck):
                                     st.subheader(df_elo.at[idx, 'Tier'])
                                     st.subheader(f"Matches: {int(df_elo.at[idx, 'Matches'])}")
                                     st.subheader(f"Spiele: {int(np.sum(values))}")
-                                    st.metric('Aktuelle Elo', df_elo.at[idx, 'Elo'], int(df_elo.at[idx, '1/4 Differenz']))
+                                    st.metric('Aktuelle Elo', df_elo.at[idx, 'Elo'], int(df_elo.at[idx, 'Letzte 3 Monate']))
                                     st.metric('Gegner Stärke', int(df_elo.at[idx, 'dgp']))
                                     st.caption('Wanderpokal:   ' + ':star:'*int(df_elo.at[idx, 'Wanderpokal']))
                                     st.caption('Fun Pokal:     ' + ':star:'*int(df_elo.at[idx, 'Fun Pokal']))
@@ -534,12 +548,12 @@ def alles_zu_einem_deck(deck_i, df_elo, hist_cols):
                   st.metric(f"Schlechteste Elo", value=f"{int(df_elo.loc[idx_deck, hist_cols+['Elo']].min())}")
 
             with deck_cols[2]:
-                  st.metric('Aktuelle Elo', df_elo.at[idx_deck, 'Elo'], int(df_elo.at[idx_deck, '1/4 Differenz']))
+                  st.metric('Aktuelle Elo', df_elo.at[idx_deck, 'Elo'], int(df_elo.at[idx_deck, 'Letzte 3 Monate']))
                   st.metric('Gegner Stärke', int(df_elo.at[idx_deck, 'dgp']))
                    
             with deck_cols[3]:
                   st.metric('Jahresmittel', value=int(df_elo.at[idx_deck, 'Mean 1 Year']), delta=int(df_elo.at[idx_deck, 'Std. 1 Year']))
-                  st.metric('Jahresänderung', value=int(df_elo.loc[idx_deck, '1 Differenz']))
+                  st.metric('Jahresänderung', value=int(df_elo.loc[idx_deck, 'Letzte 12 Monate']))
 
             with deck_cols[4]:
                   st.metric(f"Matches", value=f"{int(df_elo.at[idx_deck, 'Matches'])}")

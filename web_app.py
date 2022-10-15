@@ -101,14 +101,14 @@ with all_in_one:
       deck = st.selectbox('Wähle ein deck', options=deck_ops, index=0)
       alles_zu_einem_deck(deck, df_elo, hist_cols)
                   
-# vgl spieler
-with vgl_player:
-      vergleiche_die_spieler(df_elo, hist_cols)
-       
 # darstellung der tabelle
 with stats_table:
       make_stats_table(df_elo)
       
+# vgl spieler
+with vgl_player:
+      vergleiche_die_spieler(df_elo, hist_cols)
+
 with update_spiele:
       if secrets:
             st.header('Trage neue Spielergebnisse ein: ')
