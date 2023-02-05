@@ -1,3 +1,1 @@
-# ygo_elo_dashboard
-# ygo_elo_dashboard
-# ygo_elo_dashboard
+# Streamlit Based YUGIOH! ELO system Dashboard
