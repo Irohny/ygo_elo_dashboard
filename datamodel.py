@@ -17,7 +17,7 @@ class datamodel:
 		# create database object
 		deta = Deta(key)
 		# create databse connection
-		self.db = deta.Base("ygo_elo_database")
+		self.db = deta.Base("YgoEloBase")
 		# load data to session state of get data from session state
 		if "reload_flag" not in st.session_state:
 			# get data from data base
