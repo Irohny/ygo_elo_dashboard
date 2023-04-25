@@ -12,8 +12,9 @@ class datamodel:
 	'''
 	def __init__(self, ):
 		# load enviroment variables and extract database key
-		load_dotenv(".env")
-		key = os.getenv('key')
+		#load_dotenv(".env")
+		#key = os.getenv('key')
+		key = st.secrets['key'] 
 		# create database object
 		deta = Deta(key)
 		# create databse connection
