@@ -15,7 +15,6 @@ class PlayerPage:
         self.filed_color = "#0083B8"
         self.__build_page_layout(df, hist_cols)
 
-    @st.cache(suppress_st_warning=True)
     def __build_page_layout(self, df, hist_cols):
         '''
         '''
@@ -41,15 +40,16 @@ class PlayerPage:
         '''
         n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = self.__get_player_infos(df, name, hist_cols)
         st.header(name)
-        st.text(f'Decks in Wertung: {n_decks}')
         tmp = df[df['Owner']==name][['Siege', 'Remis', 'Niederlage']].sum()
         fig = self.__semi_circle_plot(tmp.values)
-        st.text(f"Matches: {int(df[df['Owner']==name]['Matches'].sum()//2)}")
-        st.text(f"Spiele: {int(tmp.sum()//2)}")
+        st.metric(f"Matches", f"{int(df[df['Owner']==name]['Matches'].sum()//2)}", f"{int(tmp.sum()//2)} Spiele")
         st.metric('Beste Elo Insgesamt/Aktuell', value=f'{hist_elo_best} / {act_elo_best}', delta=int(act_elo_best-hist_elo_best))
         st.metric('Schlechteste Elo Insgesamt/Aktuell', value=f'{hist_elo_min} / {act_elo_min}', delta=int(act_elo_min-hist_elo_min))
+        st.text(f'Decks in Wertung: {n_decks}')
         st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
         st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
+        st.text(f'Lokal Win: '+ emojize((':star:'*int(n_fun))))
+        st.text(f'Lokal Top: '+ emojize((':star:'*int(n_fun))))
         st.plotly_chart(fig1, theme="streamlit", use_container_width=True)
         st.pyplot(fig, transparent=True)
         st.pyplot(fig2, transparent=True)
@@ -86,8 +86,15 @@ class PlayerPage:
         :return:
         '''
         cols_spider = ['Attack', 'Control', 'Recovery', 'Consistensy','Combo', 'Resilience']
-        n_wp = df[df['Owner']==name]['Wanderpokal'].sum()
-        n_fun = df[df['Owner']==name]['Fun Pokal'].sum()
+        n_wp = 0
+        n_local_win = 0
+        n_fun = 0
+        n_local_top = 0
+        for idx in df[df['Owner']==name].index.to_numpy():
+            n_wp += int(df.at[idx, 'Meisterschaft']['Win']['Wanderpokal'])
+            n_fun += int(df.at[idx, 'Meisterschaft']['Win']['Fun Pokal'])
+            n_local_win += int(df.at[idx, 'Meisterschaft']['Win']['Local'])
+            n_local_top += int(df.at[idx, 'Meisterschaft']['Top']['Local'])
         act_elo_best = df[df['Owner']==name]['Elo'].astype(int).max()
         act_elo_min = df[df['Owner']==name]['Elo'].astype(int).min()
         

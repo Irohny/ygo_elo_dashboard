@@ -22,11 +22,11 @@ class InputPage:
 		self.__build_page_layout(df, hist_cols, cols, dm)
 
 	def __build_page_layout(self, df, hist_cols, cols, dm):
+		self.__login()
 		if st.session_state['login']==True:
 			self.__result_page(df, hist_cols, cols, dm)
 		else:
 			st.header('Bitte logge dich ein.')
-		self.__login()
 
 	def __login(self):
 		authenticator = stauth.Authenticate(self.names, self.usernames, self.hashed_passwords,
@@ -48,12 +48,25 @@ class InputPage:
 		'''
 		Method for creating a page for inserting and updating new decks and results to databse
 		'''
-		# Insert new results
+		game, tour, deck, history, mod_stats = st.tabs(['Neues Spiel', 'Turniersieger', 'Neues Deck', 'Update', 'Deck modifizieren'])
+		with game:
+			self.__insert_new_game(dm, df_elo, hist_cols, save_cols)
+		with tour:
+			self.__insert_new_tournament_win(dm, df_elo, hist_cols, save_cols)
+		with deck:
+			self.__insert_new_deck(dm, df_elo, hist_cols, save_cols)
+		with history:
+			self.__create_elo_history(dm, df_elo, hist_cols, save_cols)
+		with mod_stats:
+			self.__modify_deck(dm, df_elo, hist_cols, save_cols)
+
+	def __insert_new_game(self, dm, df_elo, hist_cols, save_cols):
+		'''
+		'''
 		st.header('Trage neue Spielergebnisse ein: ')
 		with st.form('Input new Games'):
 			inputs = st.columns(6)
 			with inputs[1]:
-				
 				deck1 = st.selectbox('Wähle Deck', 
 							options=df_elo['Deck'].unique(),
 							key='deck1')
@@ -81,7 +94,10 @@ class InputPage:
 						st.success('Update erfolgreich!!')
 						time.sleep(2)
 						st.experimental_rerun()
-			
+					
+	def __insert_new_tournament_win(self, dm, df_elo, hist_cols, save_cols):
+		'''
+		'''
 		# insert a new tournament win
 		st.header('Trage neuen Turniersieg ein:')
 		with st.form('Tourniersieg'):
@@ -90,18 +106,23 @@ class InputPage:
 					deck_tour = st.selectbox('Wähle Deck', 
 								options=df_elo['Deck'].unique(),
 								key='deck tournament')
+				with inputs[2]:
 					tournament = st.selectbox('Wähle Turnier:', 
-												options=['Wanderpokal', 'Meisterschaft',
-														'Liga Pokal', 'Fun Pokal'])
-					
+												options=['Wanderpokal', 'Local','Fun Pokal'])
+				with inputs[3]:
+					result = st.selectbox('Ergebnis:', 
+												options=['Teilnahme', 'Top','Win'])	
 				with inputs[4]:
 					if st.form_submit_button("Submit"):
-						dm.update_tournament(deck_tour, tournament, df_elo, save_cols, hist_cols)
+						dm.update_tournament(deck_tour, tournament, result, df_elo, save_cols, hist_cols)
 						st.session_state['reload_flag'] = True
 						st.success('Update erfolgreich!!')
 						time.sleep(2)
 						st.experimental_rerun()
-				
+
+	def __insert_new_deck(self, dm, df_elo, hist_cols, save_cols):
+		'''
+		'''
 		# insert a new deck
 		st.header('Trage neues Deck ein:')
 		with st.form('neies_deck'):
@@ -128,7 +149,10 @@ class InputPage:
 						st.success('Update erfolgreich!!')
 						time.sleep(2)
 						st.experimental_rerun()
-
+				
+	def __create_elo_history(self, dm, df_elo, hist_cols, save_cols):
+		'''
+		'''
 		# set current elo in history by actual month and year	
 		st.header('Update History:')
 		with st.form('history_update'):
@@ -141,6 +165,9 @@ class InputPage:
 						time.sleep(2)
 						st.experimental_rerun()
 
+	def __modify_deck(self, dm, df_elo, hist_cols, save_cols):
+		'''
+		'''
 		# modify deck stats 				
 		st.header('Modfiziere Deckstats:')
 		with st.form('Mod Stats'):
@@ -173,3 +200,4 @@ class InputPage:
 						st.success('Update erfolgreich!!')
 						time.sleep(2)
 						st.experimental_rerun()
+				

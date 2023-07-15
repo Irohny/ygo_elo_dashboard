@@ -17,6 +17,7 @@ class TablePage:
 		left, right = st.columns([2, 4])
 		with left:
 				with st.form('filter'):
+					
 					slider_range = st.slider('Stellle den Elo-Bereich ein:', 
 							min_value = int(df['Elo'].min()/10)*10,
 							max_value = int(np.ceil(df['Elo'].max()/10))*10,
@@ -40,19 +41,31 @@ class TablePage:
 							default = st.session_state['tier'])
 							
 					# filter for modus
-					tournament = st.multiselect(
+					st.session_state['tournament'] = st.selectbox(
 							'Suche nach einem Turnier:',
-							options = ['Wanderpokal', 'Meisterschaft', 'Liga Pokal', 'Fun Pokal'],
-							default = st.session_state['tournament'])
-					st.form_submit_button('Aktualisiere Tabelle')            
-		if len(tournament)>0:
-				idx = []
-				for idx_tour, tour in enumerate(tournament):
-					idx.append(df[df[tour]>0].index.to_numpy())
-				idx = np.concatenate(idx)
-				df_select = df.loc[idx, :].reset_index(drop=True)
-		else:
+							options = ['Alle', 'Wanderpokal', 'Lokal Teilnahme', 'Lokal Top', 'Lokal Win'])
+					
+					st.form_submit_button('Aktualisiere Tabelle') 
+		#	          
+		if st.session_state['tournament'] == 'Alle':
 				df_select = df.copy()
+		else:
+				idx = []
+				for idx_deck in df.index.to_list():
+					if st.session_state['tournament'] == 'Wanderpokal' and df.at[idx_deck, 'Meisterschaft']['Win']['Wanderpokal']>0:
+						idx.append(idx_deck)
+					elif st.session_state['tournament'] == 'Lokal Teilnahme' and df.at[idx_deck, 'Meisterschaft']['Teilnahme']['Local']>0:
+						idx.append(idx_deck)
+					elif st.session_state['tournament'] == 'Lokal Top' and df.at[idx_deck, 'Meisterschaft']['Top']['Local']>0:
+						idx.append(idx_deck)
+					elif st.session_state['tournament'] == 'Lokal Win' and df.at[idx_deck, 'Meisterschaft']['Win']['Local']>0:
+						idx.append(idx_deck)
+				if len(idx)>0:
+					idx = np.concatenate(idx)
+					df_select = df.loc[idx, :].reset_index(drop=True)
+				else:
+					df_select = df.copy()
+					st.error('Keine Decks gefunden')
 					
 		df_select = df_select.query(
 				"Owner == @owner & Tier == @tier & Type == @types"
