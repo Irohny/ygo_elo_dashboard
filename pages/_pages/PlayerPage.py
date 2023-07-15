@@ -38,7 +38,7 @@ class PlayerPage:
     def __display_player_stats(self, name, df, hist_cols):
         '''
         '''
-        n_wp, n_decks, n_fun, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = self.__get_player_infos(df, name, hist_cols)
+        n_wp, n_decks, n_fun, n_local_win, n_local_top, fig1, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min = self.__get_player_infos(df, name, hist_cols)
         st.header(name)
         tmp = df[df['Owner']==name][['Siege', 'Remis', 'Niederlage']].sum()
         fig = self.__semi_circle_plot(tmp.values)
@@ -48,8 +48,8 @@ class PlayerPage:
         st.text(f'Decks in Wertung: {n_decks}')
         st.text(f'Wanderpokale: '+ emojize((':star:'*int(n_wp))))
         st.text(f'Fun Pokale: '+ emojize((':star:'*int(n_fun))))
-        st.text(f'Lokal Win: '+ emojize((':star:'*int(n_fun))))
-        st.text(f'Lokal Top: '+ emojize((':star:'*int(n_fun))))
+        st.text(f'Lokal Win: '+ emojize((':star:'*int( n_local_win))))
+        st.text(f'Lokal Top: '+ emojize((':star:'*int( n_local_top))))
         st.plotly_chart(fig1, theme="streamlit", use_container_width=True)
         st.pyplot(fig, transparent=True)
         st.pyplot(fig2, transparent=True)
@@ -108,7 +108,7 @@ class PlayerPage:
         fig = self.__make_spider_plot(list(np.round(df[df['Owner']==name][cols_spider].mean(), 0).astype(int).values))
         fig2 = self.__make_deck_histo(df[df['Owner']==name])
         fig3 = self.__make_type_histo(df, name)
-        return n_wp, n_decks, n_fun, fig, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min
+        return n_wp, n_decks, n_fun, n_local_win, n_local_top, fig, fig2, fig3, act_elo_best, act_elo_min, hist_elo_best, hist_elo_min
     
     
     def __make_spider_plot(self, stats):
