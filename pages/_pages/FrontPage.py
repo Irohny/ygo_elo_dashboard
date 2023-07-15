@@ -4,6 +4,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import matplotlib
+from streamlit_timeline import timeline
 
 class FrontPage:
 	'''
@@ -11,106 +12,173 @@ class FrontPage:
 	some major statistics
 	'''
 	def __init__(self, df, hist_cols):
+		'''
+		Init-Method
+		:param df: dataframe with elo data
+		:param hist_cols: list of column names with old elo
+		'''
+		# build page layout
 		self.__build_page_layout(df, hist_cols)
 
 	def __build_page_layout(self, df, hist_cols):
+		'''
+		Method for layouting the the front page
+		:param df: dataframe with elo data
+		:param hist_cols: list with column names of old elo data 
+		'''
+		# get number of all decks
 		n = len(df['Deck'].unique())
-		# layout
-		self.__first_kpi_row(df, n)
-		st.markdown("----")
-		self.__second_kpi_row(df, hist_cols)
-		st.markdown("----")
-		self.__third_kpi_row(df,n)
-		st.markdown("----")
-		self.__vergleiche_stile(df)
+		st.title('YuGiOh! Elo-Dashboard')
+		overview, classes, timeline = st.tabs(['Überblick', 'Deckklassen', 'Deckvergleiche'])
+		# first tab on front page
+		with overview:
+			self.__first_kpi_row(df, n)
+			self.__second_kpi_row(df, hist_cols)
+		# second tab on front page
+		with classes:
+			self.__third_kpi_row(df,n)
+			# fourth row: histograms and box-violin plots of elo distributions
+			self.__vergleiche_stile(df)
+		# third tab on front page
+		with timeline:
+			cols = st.columns([.2, 1,1, .2])
+			with cols[1]:
+				st.title('Top 5 Zeitstrahl')
+				self.__time_line_widget(df, hist_cols)
+			with cols[2]:
+				st.markdown('')
+				st.markdown('')
+				fig = self.__plot_deck_desity(np.array(df['Elo'].values).squeeze())
+				st.markdown(f"<h4 style='text-align: center; color: withe;' >Elo-Verteilung</h4>", unsafe_allow_html=True)
+				st.pyplot(fig, transparent=True)
+		
+
 
 	def __first_kpi_row(self, df, n):
-		# layout
+		'''
+		Method for displaying the first row of the front page KPI's
+		Show number of player, games, deck
+		:param df: dataframe with elo/deck data
+		:param n: number of all decks 
+		'''
 		cols_layout = st.columns([2,2,2,2])
+		# first column with number of decks
 		with cols_layout[0]:
-			st.header(f"Decks in Wertung:")
-			st.header(n)
-				
+			st.metric(f"Decks in Wertung:", n)
+		# second columns with number of matches
 		with cols_layout[1]:
-			st.header(f"Gesamtzahl Matches:")
-			st.header(int(df['Matches'].sum()/2))
-				
+			st.metric(f"Gesamtzahl Matches:", int(df['Matches'].sum()/2))
+		# third column with number of games
 		with cols_layout[2]:
-			st.header(f"Gesamtzahl Spiele:")
-			st.header(int((df['Siege'].sum()+df['Remis'].sum()+df['Niederlage'].sum())/2))
-
+			st.metric(f"Gesamtzahl Spiele:", int((df['Siege'].sum()+df['Remis'].sum()+df['Niederlage'].sum())/2))
+		# fourth column with number of player
 		with cols_layout[3]:
-			st.header(f"Anzahl Spieler:")
-			st.header(len(df['Owner'].unique()))
+			st.metric(f"Anzahl Spieler:", len(df['Owner'].unique()))
 
 	def __second_kpi_row(self, df, hist_cols):
+		'''
+		Method for displaying the second KPI row of the dashboard frontpage
+		:param df: dataframe with elo/deck data
+		:param hist_cols: list of columns names with old elo
+		'''
+		# get best and worst decks in the data
 		df_max = df[hist_cols+['Elo']].agg(['idxmax', 'max'])
 		df_min = df[df[hist_cols+['Elo']]>0][hist_cols+['Elo']].agg(['idxmin', 'min'])
-		cols_layout = st.columns([3,3,3,3])
-		with cols_layout[0]:
-			st.header('Höchste Elo')	
+		# define layout columns with header for the following icons and metrics
+		cols_layout = st.columns([.2,2,.2,2,.2,2,.2,2,.2])
+		# first column: all over best elo
 		with cols_layout[1]:
-			st.header('Aktuell beste Elo')
-		with cols_layout[2]:
-			st.header('Niedgriste Elo')
-		with cols_layout[3]:
-			st.header('Aktuelle niedrigste Elo')
-		
-		metric_cols = st.columns([1,2,1,2,1,2,1,2])
-		with metric_cols[0]:
+			st.header('Höchste Elo:')
 			deck = df.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']
+			elo = int(df_max.loc['max', :].max())
 			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img)
-		with metric_cols[1]:
-			st.metric(f"", value=f"{df.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']}", delta=f"{int(df_max.loc['max', :].max())}")
-
-		with metric_cols[2]:
+			st.image(img, use_column_width=True)
+			st.markdown(f"<h4 style='text-align: center; color: withe;' >{deck} {elo}</h4>", unsafe_allow_html=True)
+		# second column: actual best elo	
+		with cols_layout[3]:
+			st.header('Aktuell beste Elo:')
 			deck = df.at[int(df_max.at['idxmax', 'Elo']), 'Deck']
+			elo = int(df_max.at['max', 'Elo'])
 			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img)
-		with metric_cols[3]:
-			st.metric(f"", value=f"{df.at[int(df_max.at['idxmax', 'Elo']), 'Deck']}", delta=f"{int(df_max.at['max', 'Elo'])}")
-
-		with metric_cols[4]:
+			st.image(img, use_column_width=True)
+			st.markdown(f"<h4 style='text-align: center; color: withe;' >{deck} {elo}</h4>", unsafe_allow_html=True)
+		# third column: all over worst elo
+		with cols_layout[5]:
+			st.header('geringste Elo:')
 			deck = df.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']
 			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img)
-		with metric_cols[5]:
-			st.metric(f"", value=f"{df.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']}", delta=f"{int(df_min.loc['min', :].min())}")
-
-		with metric_cols[6]:
+			elo = int(df_min.loc['min', :].min()) 
+			st.image(img, use_column_width=True)
+			st.markdown(f"<h3 style='text-align: center; color: withe;' >{deck} {elo}</h3>", unsafe_allow_html=True)
+		# fourth column: actual worst elo
+		with cols_layout[7]:
+			st.header('niedrigste Elo:')
 			deck = df.at[df_min.loc['idxmin', 'Elo'], 'Deck']
+			elo = int(df_min.loc['min', 'Elo'].min())
 			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img)
-		with metric_cols[7]:
-			st.metric(f"", value=f"{df.at[df_min.loc['idxmin', 'Elo'], 'Deck']}", delta=f"{int(df_min.loc['min', 'Elo'].min())}")
+			st.image(img, use_column_width=True)
+			st.markdown(f"<h4 style='text-align: center; color: withe;' >{deck} {elo}</h4>", unsafe_allow_html=True)
+
+	def __time_line_widget(self, df, hist_cols):
+		'''
+		'''
+		time_json = {'title':{"text": {
+          					"headline": "Top 5",
+          					"text": "Die besten Decks im Vergleich"
+        					}},
+					'events':[]}
+		for i, date in enumerate(hist_cols):
+			datum = {"year":"","month":""}
+			text = {"headline": "","text": ""}
+			
+			datum['year'] = str(date[3:])
+			datum['month'] = str(int(date[:2]))
+			test = df[[date, 'Deck']].copy().sort_values(by=date, ascending=False).reset_index(drop=True)
+			text['text'] = f"<p>{test.at[0, 'Deck']} {int(test.at[0, date])}<p>\
+							<p>{test.at[1, 'Deck']} {int(test.at[1, date])}<p>\
+							<p>{test.at[2, 'Deck']} {int(test.at[2, date])}<p>\
+							<p>{test.at[3, 'Deck']} {int(test.at[3, date])}<p>\
+							<p>{test.at[4, 'Deck']} {int(test.at[4, date])}<p>"
+			event = {"start_date": datum,
+        			"text":text}
+			time_json['events'].append(event)
+		timeline(time_json, height=410)
+		
+		
+
 
 	def __third_kpi_row(self, df, n):
+		'''
+		Method for displaying the third KPI row of the front page of the elo dashboard
+		:param df: dataframe with elo/deck data
+		:param n: number of all decks
+		'''
+		# get list of deck types
 		types = list(df['Type'].unique())
-		st.header('Beste Decks der Kategorien:')
+		# display row header and define layout for best categorie dekcs 
+		#st.header('Beste Decks der Kategorien:')
 		colst = st.columns(len(types))
+		# loop over all rows and categories
 		for k in range(len(types)):
+				# plot in this colum the name, icon, elo of the best deck in the categorie
 				with colst[k]:
 					tmp = df[df['Type']==types[k]].sort_values(by=['Elo'], ascending=False).reset_index(drop=True)
 					idx = tmp.at[0, 'Deck']
 					d = tmp.at[0, 'Elo']
-					st.header(types[k])
-					st.metric('', value=idx, delta=f"{d}")
+					n = len(tmp)
+					st.header(f"{types[k]}")
 					img = plt.imread(f'./Deck_Icons/{idx}.png')
-					st.image(img)
-					
-
-		colsk = st.columns(6)
-		for i, feat in enumerate(types):
-				with colsk[i]:
-					n = len(df[df['Type']==feat])
-					st.metric('Anzahl Decks ' + feat, value=n)
+					st.image(img, use_column_width=True)
+					st.markdown(f"<h5 style='text-align: center; color: withe;' >{idx} {d}</h5>", unsafe_allow_html=True)
+					st.markdown(f"<h5 style='text-align: center; color: withe;' >Decks {n}</h5>", unsafe_allow_html=True)
 
 	def __vergleiche_stile(self, df):
 		'''
 		'''
 		types = df['Type'].unique()
-		histo, viobox, c3 = st.columns([1, 1, 1])
+		histo, viobox = st.columns([1, 1])
+
+		
 		with histo:
 			n_types = len(types)
 			fig, axs = plt.subplots(1, figsize=(8,5))
@@ -143,14 +211,11 @@ class FrontPage:
 			axs.spines['left'].set_color('white')
 			axs.tick_params(colors='white', which='both')
 			st.pyplot(fig, transparent=True)
-		
-		with c3:
-			fig = self.__plot_deck_desity(np.array(df['Elo'].values).squeeze())
-			st.pyplot(fig, transparent=True)
-
-	@st.cache(hash_funcs={matplotlib.figure.Figure: lambda _: None})
+			
 	def __plot_deck_desity(self, values):
-      
+		'''
+		
+		'''
 		Label = ['Kartenstapel','Fun', 'Good', 'Tier 2', 'Tier 1', 'Tier 0']
 		H, bins = self.__do_histogram(values, b=10, d=False)
 		
@@ -160,14 +225,14 @@ class FrontPage:
 		x = np.linspace(mean-4*std, mean+4*std, 500)
 		a = 0.3
 
-		fig = plt.figure(figsize=(8,8))
+		fig = plt.figure(figsize=(6,6))
 		fig.set_figheight(10)
 		fig.set_figwidth(15)
 		
 		# create grid for different subplots
 		spec = gridspec.GridSpec(ncols=1, nrows=2, hspace=0, height_ratios=[6, 1])
 		axs = fig.add_subplot(spec[0])
-		axs.set_title('Elo-Verteilung', fontsize=20, color='white')
+		#axs.set_title('Elo-Verteilung', fontsize=20, color='white')
 		axs1 = fig.add_subplot(spec[1])
 		
 		axs2 = axs.twinx()
@@ -279,9 +344,15 @@ class FrontPage:
 		return fig
 	
 	def __gauss(self, x, m, s):
+		'''
+		
+		'''
 		return 1/(s*np.sqrt(2*np.pi))*np.exp(-(x-m)**2/(4*s**2))
 
 	def __do_histogram(self, data, b=10, d=True):
+		'''
+		
+		'''
 		counts, bins = np.histogram(data, b, density=d)
 
 		n = np.size(bins)
