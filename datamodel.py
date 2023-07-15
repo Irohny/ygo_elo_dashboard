@@ -12,13 +12,16 @@ class datamodel:
 	'''
 	def __init__(self, ):
 		# load enviroment variables and extract database key
+		# for localhost version
 		#load_dotenv(".env")
-		#key = os.getenv('key')
-		key = st.secrets['key'] 
+		# for streamlit app in live mode
+		key = st.secrets['key']
 		# create database object
 		deta = Deta(key)
 		# create databse connection
 		self.db = deta.Base("YgoEloBase")
+		# set default miesteschaft dictonary for saving and updating
+		self.df_default_meisterschaft = pd.DataFrame(index=['Wanderpokal', 'Local', 'Fun Pokal'], columns=['Teilnahme', 'Top', 'Win']).fillna(0).to_dict()
 		# load data to session state of get data from session state
 		if "reload_flag" not in st.session_state:
 			# get data from data base
@@ -28,7 +31,7 @@ class datamodel:
 								'types_select':self.df['Type'].unique(),
 								'tier':self.df['Tier'].unique(),
 								'sorting':['Elo-Rating'],
-								'tournament':[],
+								'tournament':'Alle',
 								'deck_i':'',
 								'deck':[],
 								'reload_flag':False,
@@ -46,7 +49,7 @@ class datamodel:
 								'types_select':self.df['Type'].unique(),
 								'tier':self.df['Tier'].unique(),
 								'sorting':['Elo-Rating'],
-								'tournament':[],
+								'tournament':'Alle',
 								'deck_i':'',
 								'deck':[],
 								'reload_flag':False,
@@ -102,6 +105,7 @@ class datamodel:
 		del df['History']
 		save_cols = df.columns.to_numpy()
 		save_cols = np.delete(save_cols, np.where(save_cols == 'key'))
+		save_cols = np.delete(save_cols, np.where(save_cols == 'Meisterschaft'))
 		# merge history dataframe and rest
 		df_all = pd.merge(df, hist_df, right_index=True, left_index=True)
 		
@@ -194,11 +198,12 @@ class datamodel:
 			dict_hist[col] = str(ds[col])
 		# include historic elo dictonary to info dictionary
 		dict_update['History'] = dict_hist
+		dict_update['Meisterschaft'] = ds['Meisterschaft']
 		# update database
 		self.db.put(dict_update, unique_key)
 	      
 	      
-	def update_tournament(self, deck, tour, df, save_cols, hist_cols):
+	def update_tournament(self, deck, tour, result, df, save_cols, hist_cols):
 		'''
 		Method for updating the tournament column of a spezific deck
 		:param deck: name des decks to update
@@ -212,7 +217,11 @@ class datamodel:
 		# find index of the deck to update
 		idx = int(df[df['Deck']==deck].index.to_numpy())
 		# increase choosen tournament
-		df.at[idx, tour] += 1
+		df.at[idx, 'Meisterschaft']['Teilnahme'][tour] += 1
+		if result == 'Win':
+			df.at[idx, 'Meisterschaft']['Win'][tour] += 1
+		if result == 'Top':
+			df.at[idx, 'Meisterschaft']['Top'][tour] += 1
 		# get key of the deck
 		unique_key = df.at[idx, 'key']
 		# update element in database
@@ -242,6 +251,7 @@ class datamodel:
 			df_elo.at[idx, in_stats_type] = new_type
 		# get deck key and update the database
 		unique_key = df_elo.at[idx, 'key']
+		df_elo['Meisterschaft'] = df_elo['Meisterschaft'].astype(object) 
 		self.__update_element(unique_key, df_elo.loc[idx, :], save_cols, hist_cols)
 
 	def update_history(self, df, hist_cols, save_cols):
@@ -295,7 +305,7 @@ class datamodel:
 		'Resilience':resi,
 		'Type':typ,	
 		'Wanderpokal':0,
-		'Meisterschaft':0,
+		'Meisterschaft':self.df_default_meisterschaft,
 		'Liga Pokal':0,	
 		'Fun Pokal':0, 	
 		'Matches':0,	
@@ -316,7 +326,7 @@ class datamodel:
 		:return df: dataframe with data in right format and new calculated values
 		'''
 		# columns with integer values
-		cols_to_int = ['Elo', 'dgp', 'Wanderpokal', 'Meisterschaft', 'Liga Pokal', 'Fun Pokal', 'Attack', 'Combo', 'Resilience', 'Recovery',
+		cols_to_int = ['Elo', 'dgp', 'Wanderpokal', 'Liga Pokal', 'Fun Pokal', 'Attack', 'Combo', 'Resilience', 'Recovery',
 					'Consistensy', 'Control','Matches', 'Siege', 'Remis', 'Niederlage']+hist_cols
 		# fill nulls and transform float data to interes
 		for k in cols_to_int:
