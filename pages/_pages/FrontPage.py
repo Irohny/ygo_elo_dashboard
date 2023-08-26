@@ -4,7 +4,11 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 import matplotlib
+import streamlit.components.v1 as components
 from streamlit_timeline import timeline
+import bar_chart_race as bcr
+import base64
+import datetime
 
 class FrontPage:
 	'''
@@ -45,15 +49,20 @@ class FrontPage:
 			with cols[1]:
 				st.title('Top 5 Zeitstrahl')
 				self.__time_line_widget(df, hist_cols)
+				#st.markdown('start')
+				#rbc = self.__creat_racing_bar_chart(df, hist_cols).data
+				#st.markdown('end')
+				#start = rbc.find('base64,')+len('base64,')
+				#end = rbc.find('">')
+				#video = base64.b64decode(rbc[start:end])
+				#st.video(video)
 			with cols[2]:
 				st.markdown('')
 				st.markdown('')
 				fig = self.__plot_deck_desity(np.array(df['Elo'].values).squeeze())
 				st.markdown(f"<h4 style='text-align: center; color: withe;' >Elo-Verteilung</h4>", unsafe_allow_html=True)
 				st.pyplot(fig, transparent=True)
-		
-
-
+			
 	def __first_kpi_row(self, df, n):
 		'''
 		Method for displaying the first row of the front page KPI's
@@ -362,3 +371,31 @@ class FrontPage:
 			cbins[ii] = (bins[ii+1]+bins[ii])/2
 
 		return counts, cbins
+	
+	def __creat_racing_bar_chart(self, df, hist_cols):
+		rancing_df = []
+		for col in hist_cols:
+			tmp = df[['Deck', col]].copy()
+			tmp.rename(columns={col:'Elo'}, inplace=True)
+			tmp['Date'] = pd.to_datetime(f'{col[2:]}-{col[:2]}-01')
+			rancing_df.append(tmp)
+		tmp = df[['Deck', 'Elo']].copy()
+		tmp['Date'] = pd.to_datetime(datetime.datetime.now())
+		rancing_df.append(tmp)
+		rancing_df = pd.concat(rancing_df).reset_index(drop=True)
+		
+		rancing_df = rancing_df.pivot(index = "Date", columns = "Deck", values = "Elo").reset_index().rename_axis(None, axis=1)
+		rancing_df.fillna(0, inplace=True)
+		rancing_df.set_index("Date", inplace = True)
+		return bcr.bar_chart_race(df = rancing_df, 
+			    				title = "Elo", 
+								n_bars=10,
+								bar_size=.9,
+								dpi=75,
+    							cmap='dark12',
+								figsize=(16, 10),
+								period_length=1500,
+								steps_per_period=5,
+								bar_label_size=15,
+    							tick_label_size=15,
+								scale='log',)

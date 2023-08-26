@@ -14,6 +14,7 @@ class datamodel:
 		# load enviroment variables and extract database key
 		# for localhost version
 		#load_dotenv(".env")
+		#os.getenv('key')
 		# for streamlit app in live mode
 		key = st.secrets['key']
 		# create database object
@@ -22,6 +23,13 @@ class datamodel:
 		self.db = deta.Base("YgoEloBase")
 		# set default miesteschaft dictonary for saving and updating
 		self.df_default_meisterschaft = pd.DataFrame(index=['Wanderpokal', 'Local', 'Fun Pokal'], columns=['Teilnahme', 'Top', 'Win']).fillna(0).to_dict()
+		# filter parameter for deck building page
+		amount_dict = {'Starter':0, 'Handtrap':0, 'Boardbreaker':0, 'Extender':0, 'Brick':0,
+                       'Floodgate':0, 'Searcher':0, 'Monster':0, 'Zauber':0, 'Falle':0,
+                       'Engine 1':0, 'Engine 2':0, 'Engine 3':0, 'Engine 4':0,'Draw':0,
+					   'Feuer':0, 'Wasser':0, 'Licht':0, 'Finsternis':0, 'Erde':0, 'Wind':0,
+					   'Divine':0}
+		cardtyp_default = ['Starter', 'Extender', 'Handtrap', 'Boardbreaker', 'Brick']
 		# load data to session state of get data from session state
 		if "reload_flag" not in st.session_state:
 			# get data from data base
@@ -38,7 +46,9 @@ class datamodel:
 								'dataframe':self.df,
 								'hist_cols':self.hist_cols,
 								'cols':self.cols,
-								'login':None
+								'login':None,
+								'card_amounts':amount_dict,
+								'cardtyp_defaults':cardtyp_default
 								}
 		# if page get a forced reload after data base insertion reload data
 		elif st.session_state['reload_flag']:
@@ -56,7 +66,9 @@ class datamodel:
 								'dataframe':self.df,
 								'hist_cols':self.hist_cols,
 								'cols':self.cols,
-								'login':None
+								'login':None,
+								'card_amounts':amount_dict,
+								'cardtyp_defaults':cardtyp_default
 								}
 		# use already loaded data
 		else:
