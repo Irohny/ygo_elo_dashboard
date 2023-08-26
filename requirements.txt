@@ -11,3 +11,6 @@ streamlit-aggrid==0.3.3
 plotly==5.10.0
 extra-streamlit-components==0.1.55
 streamlit-timeline==0.0.2
+datetime==5.2
+zope.interface==6.0
+bar-chart-race==0.1.0
