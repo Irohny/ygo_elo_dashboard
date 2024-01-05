@@ -11,16 +11,12 @@ class datamodel:
 	Dataclass model for getting and processing data for visualization
 	'''
 	def __init__(self, ):
-		# load enviroment variables and extract database key
-		# for localhost version
-		#load_dotenv(".env")
-		#os.getenv('key')
-		# for streamlit app in live mode
-		key = st.secrets['key']
 		# create database object
-		deta = Deta(key)
+		deta = Deta(st.secrets['key'])
+		deta2 = Deta(st.secrets['ygo_tournament_key'])
 		# create databse connection
 		self.db = deta.Base("YgoEloBase")
+		self.tourn_db = deta2.Base("YuGiOh_Tournaments")
 		# set default miesteschaft dictonary for saving and updating
 		self.df_default_meisterschaft = pd.DataFrame(index=['Wanderpokal', 'Local', 'Fun Pokal'], columns=['Teilnahme', 'Top', 'Win']).fillna(0).to_dict()
 		# filter parameter for deck building page
@@ -30,6 +26,9 @@ class datamodel:
 					   'Feuer':0, 'Wasser':0, 'Licht':0, 'Finsternis':0, 'Erde':0, 'Wind':0,
 					   'Divine':0}
 		cardtyp_default = ['Starter', 'Extender', 'Handtrap', 'Boardbreaker', 'Brick']
+		#
+		self.tdf = pd.DataFrame(self.tourn_db.fetch().items)
+		self.tdf['Date'] = pd.to_datetime(self.tdf['Date'])
 		# load data to session state of get data from session state
 		if "reload_flag" not in st.session_state:
 			# get data from data base
@@ -75,14 +74,37 @@ class datamodel:
 			self.df = st.session_state['dataframe']
 			self.hist_cols = st.session_state['hist_cols']
 			self.cols = st.session_state['cols']
+		#
+		self.__merge_tournament_and_deck_tables()
 
-	
+	def get_tournament_data(self):
+		"""
+		Method for returning all big tournament results in torunament table
+		"""
+		return self.tdf
+
 	def get(self):
 		'''
 		Method for returng the processed data from the databse to
 		the dashbord.
 		'''
 		return self.df, self.cols, self.hist_cols
+
+	def __merge_tournament_and_deck_tables(self, ):
+		"""
+		"""
+		# get local tops
+		a = self.tdf[(self.tdf['Standing']=='Top')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
+		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
+		self.df.rename(columns={'Standing':'Local Top'}, inplace=True)
+		# get number of locals
+		a = self.tdf[(self.tdf['Standing']=='Teilnahme')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
+		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
+		self.df.rename(columns={'Standing':'Local'}, inplace=True)
+		# 
+		a = self.tdf[(self.tdf['Standing']=='Win')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
+		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
+		self.df.rename(columns={'Standing':'Local Win'}, inplace=True)
 
 	def __create_data_model(self):
 		'''
