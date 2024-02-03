@@ -34,6 +34,7 @@ class DeckBuilderPage:
         self.feat_cols = ['image', 'Karte', 'Anzahl', 'Tag', 'price', 'archetype', 'frameType']
         self.vis = Visualization()
         # build page
+        self.__reset_session_state()
         self.ygo_db = self.__ygo_api()
         self.__build_page_layout()
 
@@ -161,7 +162,7 @@ class DeckBuilderPage:
         Tab 2: Deck Breakdown
         Tab 3: Statistical Analysis
         """
-        st.header('Deck Bilder')
+        st.header('Deck Builder')
         tabs = st.tabs(['Eingabe', 'Deck Breakdown', 'Deck Analyse'])
         self.__create_input_tab(tabs[0])
         self.__create_breakdown_tab(tabs[1])
