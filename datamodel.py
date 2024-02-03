@@ -1,8 +1,6 @@
 from deta import Deta
 import numpy as np
 import pandas as pd
-import os
-from dotenv import load_dotenv
 import datetime
 import streamlit as st
 
@@ -19,18 +17,11 @@ class datamodel:
 		self.tourn_db = deta2.Base("YuGiOh_Tournaments")
 		# set default miesteschaft dictonary for saving and updating
 		self.df_default_meisterschaft = pd.DataFrame(index=['Wanderpokal', 'Local', 'Fun Pokal'], columns=['Teilnahme', 'Top', 'Win']).fillna(0).to_dict()
-		# filter parameter for deck building page
-		amount_dict = {'Starter':0, 'Handtrap':0, 'Boardbreaker':0, 'Extender':0, 'Brick':0,
-                       'Floodgate':0, 'Searcher':0, 'Monster':0, 'Zauber':0, 'Falle':0,
-                       'Engine 1':0, 'Engine 2':0, 'Engine 3':0, 'Engine 4':0,'Draw':0,
-					   'Feuer':0, 'Wasser':0, 'Licht':0, 'Finsternis':0, 'Erde':0, 'Wind':0,
-					   'Divine':0}
-		cardtyp_default = ['Starter', 'Extender', 'Handtrap', 'Boardbreaker', 'Brick']
-		#
+		# get tournmaent data
 		self.tdf = pd.DataFrame(self.tourn_db.fetch().items)
 		self.tdf['Date'] = pd.to_datetime(self.tdf['Date'])
 		# load data to session state of get data from session state
-		if "reload_flag" not in st.session_state:
+		if "reload_flag" not in st.session_state or st.session_state['reload_flag']:
 			# get data from data base
 			self.df, self.cols, self.hist_cols = self.__create_data_model()
 			# setup session state
@@ -46,30 +37,7 @@ class datamodel:
 								'hist_cols':self.hist_cols,
 								'cols':self.cols,
 								'login':None,
-								'card_amounts':amount_dict,
-								'cardtyp_defaults':cardtyp_default
 								}
-		# if page get a forced reload after data base insertion reload data
-		elif st.session_state['reload_flag']:
-			# get data from data base
-			self.df, self.cols, self.hist_cols = self.__create_data_model()
-			# setup session state
-			st.session_state = {'owner':self.df['Owner'].unique(), 
-								'types_select':self.df['Type'].unique(),
-								'tier':self.df['Tier'].unique(),
-								'sorting':['Elo-Rating'],
-								'tournament':'Alle',
-								'deck_i':'',
-								'deck':[],
-								'reload_flag':False,
-								'dataframe':self.df,
-								'hist_cols':self.hist_cols,
-								'cols':self.cols,
-								'login':None,
-								'card_amounts':amount_dict,
-								'cardtyp_defaults':cardtyp_default
-								}
-		# use already loaded data
 		else:
 			self.df = st.session_state['dataframe']
 			self.hist_cols = st.session_state['hist_cols']
@@ -92,19 +60,27 @@ class datamodel:
 
 	def __merge_tournament_and_deck_tables(self, ):
 		"""
+		Method for combining torunament dat to deck data for local results
+		"""
+		self.__merge_tournament_and_decks('Top', 'Local Top')
+		self.__merge_tournament_and_decks('Teilnahme', 'Local')
+		self.__merge_tournament_and_decks('Win', 'Local Win')
+
+	def __merge_tournament_and_decks(self, result, new_name):
+		"""
+		Method for merging tournament data to deck data
+		:param result: tournament satnding
+		:param new_name: name of the tournament standing column
+		:return result:merged dataframe
 		"""
 		# get local tops
-		a = self.tdf[(self.tdf['Standing']=='Top')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
-		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
-		self.df.rename(columns={'Standing':'Local Top'}, inplace=True)
-		# get number of locals
-		a = self.tdf[(self.tdf['Standing']=='Teilnahme')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
-		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
-		self.df.rename(columns={'Standing':'Local'}, inplace=True)
-		# 
-		a = self.tdf[(self.tdf['Standing']=='Win')&(self.tdf['Mode']=='Local')][['Deck', 'Standing']].groupby('Deck').count()
-		self.df = pd.merge(self.df, a, left_on='Deck', right_on='Deck', how='left').fillna(0)
-		self.df.rename(columns={'Standing':'Local Win'}, inplace=True)
+		filtered = self.tdf[(self.tdf['Standing'] == result) & (self.tdf['Mode'] == 'Local')]
+		result = (filtered[['Deck', 'Standing']].groupby('Deck').count())
+		# merge
+		self.df = pd.merge(
+			self.df, result, left_on='Deck', right_on='Deck', how='left'
+		).fillna(0)
+		self.df.rename(columns={'Standing': new_name}, inplace=True)
 
 	def __create_data_model(self):
 		'''
@@ -153,15 +129,15 @@ class datamodel:
 		idx1 = int(df_elo[df_elo['Deck']==deck1].index.to_numpy())
 		idx2 = int(df_elo[df_elo['Deck']==deck2].index.to_numpy())
 		# update siege/niederlagen
-		if not erg1 == erg2:
-				df_elo.at[idx1, 'Siege'] += erg1
-				df_elo.at[idx1, 'Niederlage'] += erg2
-				
-				df_elo.at[idx2, 'Siege'] += erg2
-				df_elo.at[idx2, 'Niederlage'] += erg1
+		if erg1 != erg2:
+			df_elo.at[idx1, 'Siege'] += erg1
+			df_elo.at[idx1, 'Niederlage'] += erg2
+
+			df_elo.at[idx2, 'Siege'] += erg2
+			df_elo.at[idx2, 'Niederlage'] += erg1
 		else:
-				df_elo.at[idx1, 'Remis'] +=erg1
-				df_elo.at[idx2, 'Remis'] +=erg2
+			df_elo.at[idx1, 'Remis'] +=erg1
+			df_elo.at[idx2, 'Remis'] +=erg2
 		# update matches
 		df_elo.at[idx1, 'Matches'] += 1
 		df_elo.at[idx2, 'Matches'] += 1
@@ -169,25 +145,25 @@ class datamodel:
 		df_elo.at[idx1, 'dgp'] = (df_elo.at[idx1, 'dgp'] + 2*df_elo.at[idx2, 'Elo'])//3
 		df_elo.at[idx2, 'dgp'] = (df_elo.at[idx2, 'dgp'] + 2*df_elo.at[idx1, 'Elo'])//3
 		# update elo
-		norm = erg1 + erg2 
+		norm = erg1 + erg2
 		score1 = erg1/norm
 		score2 = erg2/norm
-		
+
 		# calculate winning probabilities 
 		# Formula from Chess ELO System
 		alpha = 10**((df_elo.at[idx1, 'Elo']-df_elo.at[idx2, 'Elo'])/400)
 		p1 = alpha/(alpha+1)
 		p2 = 1-p1
-		
+
 		# Update ELO (Chess Formula)
 		df_elo.at[idx1, 'Elo'] += int(32*(score1-p1))
 		df_elo.at[idx2, 'Elo'] += int(32*(score2-p2))
-		
+
 		df_elo = self.__update_tiers(df_elo)
-		
+
 		key1 = df_elo.at[idx1, 'key']
 		key2 = df_elo.at[idx2, 'key']
-		
+
 		self.__update_element(key1, df_elo.loc[idx1, :], save_cols, hist_cols)
 		self.__update_element(key2, df_elo.loc[idx2, :], save_cols, hist_cols)
 
@@ -221,15 +197,8 @@ class datamodel:
 		:param db: key to database
 		:return: nothing
 		'''
-		# empty update dictionaries
-		dict_update = {}
-		dict_hist = {}
-		# build historic elo dictionary
-		for col in save_cols:
-			dict_update[col] = str(ds[col])
-		# build ifon dictionary
-		for col in hist_cols:
-			dict_hist[col] = str(ds[col])
+		dict_update = {col: str(ds[col]) for col in save_cols}
+		dict_hist = {col: str(ds[col]) for col in hist_cols}
 		# include historic elo dictonary to info dictionary
 		dict_update['History'] = dict_hist
 		dict_update['Meisterschaft'] = ds['Meisterschaft']
@@ -237,29 +206,13 @@ class datamodel:
 		self.db.put(dict_update, unique_key)
 	      
 	      
-	def update_tournament(self, deck, tour, result, df, save_cols, hist_cols):
+	def insert_tournament(self, result_dict):
 		'''
 		Method for updating the tournament column of a spezific deck
-		:param deck: name des decks to update
-		:param tour: name of the tournament to update
-		:param df: dataframe with all daa
-		:param save_cols:list with columns with deck infos
-		:param hist_cols: list with all columns with historic elo data
-		:param db: key to database
-		:return: nothing
+		:param result_dict: diconary with tournament results
 		'''
-		# find index of the deck to update
-		idx = int(df[df['Deck']==deck].index.to_numpy())
-		# increase choosen tournament
-		df.at[idx, 'Meisterschaft']['Teilnahme'][tour] += 1
-		if result == 'Win':
-			df.at[idx, 'Meisterschaft']['Win'][tour] += 1
-		if result == 'Top':
-			df.at[idx, 'Meisterschaft']['Top'][tour] += 1
-		# get key of the deck
-		unique_key = df.at[idx, 'key']
-		# update element in database
-		self.__update_element(unique_key, df.loc[idx, :], save_cols, hist_cols)
+		self.tourn_db.put(result_dict)
+		
 	      
 	def update_stats(self, deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, save_cols, hist_cols):
 		'''
@@ -301,11 +254,11 @@ class datamodel:
 		date = datetime.date.today()
 		name = date.strftime("%m/%Y")
 		# if actual date is not in historic columns include new column
-		if not name in hist_cols:
+		if name not in hist_cols:
 			# include new column
 			df[name] = df['Elo']
 		# add new column to hist columns
-		hist_cols += [name]      
+		hist_cols += [name]
 		# update all decks in database with new historic deck column
 		for i in range(len(df)):
 				unique_key = df.at[i, 'key']
@@ -366,21 +319,12 @@ class datamodel:
 		for k in cols_to_int:
 			df[k] = df[k].fillna(0).astype(float)
 			df[k] = df[k].astype(int)
-		# calculate last 3 month difference
-		df['Letzte 3 Monate'] = 0
-		idx = df[df[hist_cols[-1]]>0].index
-		df.loc[idx, 'Letzte 3 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-1]]
-		df['Letzte 3 Monate'] = df['Letzte 3 Monate'].astype(int)
-		# calculate last 6 month difference
-		df['Letzte 6 Monate'] = 0
-		idx = df[df[hist_cols[-2]]>0].index
-		df.loc[idx, 'Letzte 6 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-2]]
-		df['Letzte 6 Monate'] = df['Letzte 6 Monate'].astype(int)
-		# calculate last 12 month difference
-		df['Letzte 12 Monate'] = 0
-		idx = df[df[hist_cols[-4]]>0].index
-		df.loc[idx, 'Letzte 12 Monate'] = df.loc[idx, 'Elo']-df.loc[idx, hist_cols[-4]]
-		df['Letzte 12 Monate'] = df['Letzte 12 Monate'].astype(int)
+		# last 3 month
+		df = self.__calcualte_past_stats(df, 'Letzte 3 Monate', hist_cols, -1)
+		# last 6 month
+		df = self.__calcualte_past_stats(df, 'Letzte 6 Monate', hist_cols, -2)
+		# last year
+		df = self.__calcualte_past_stats(df, 'Letzte 12 Monate', hist_cols, -4)
 		# calculate mean and std of the last year
 		df['Mean 1 Year'] = np.nanmean(df[hist_cols[-5:-1]+['Elo']],1)
 		df['Mean 1 Year'] = df['Mean 1 Year'].astype(int)
@@ -390,23 +334,32 @@ class datamodel:
 		df['Gewinnrate'] = 100*np.round(df['Siege']/(df['Siege']+df['Remis']+df['Niederlage']), 2)
 		return df.fillna(0)
 
+	def __calcualte_past_stats(self, df, new_column, hist_cols, past_idx):
+		'''
+		Method for calcualting the history elo stats changes of the decks
+		:param df: deck datatframe
+		:param new_column: name of the new column
+		:param hist_cols: history columns
+		:param past_idx: index of the past date for change calculation
+		:return df: deck dataframe with new featuer
+		'''
+		df[new_column] = 0
+		result = df[df[hist_cols[past_idx]] > 0].index
+		df.loc[result, new_column] = df.loc[result, 'Elo'] - df.loc[result, hist_cols[past_idx]]
+		df[new_column] = df[new_column].astype(int)
+		return df
+
 	def __sort_hist_cols(self, hist_cols):
 		'''
 		Method for sorting the list with historic elo in ascending order
 		:param hist_cols: list with columns with historic elo 
 		:return out: sorted list with historic elo
 		'''
-		# empty list for transformed (to date) column names
-		t = []
-		# loop over historic columns
-		for c in hist_cols:
-			t.append(datetime.date(year = int(c[-4:]), month = int(c[:2]), day=1))
+		t = [
+			datetime.date(year=int(c[-4:]), month=int(c[:2]), day=1)
+			for c in hist_cols
+		]
 		# sort dates
 		t = pd.Series(t).sort_values().reset_index(drop=True)
-		# list for sorted cback transformed (to string) column names
-		out = []
-		# loop over all dates in ascending order
-		for i in range(len(t)):
-			out.append(t[i].strftime('%m/%Y')) 
-		return out
+		return [t[i].strftime('%m/%Y') for i in range(len(t))]
 

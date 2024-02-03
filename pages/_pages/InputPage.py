@@ -12,13 +12,7 @@ class InputPage:
 	in the database. Only for Users with an account
 	'''
 	def __init__(self, dm, df, hist_cols, cols):
-		self.names = ['Chriss']
-		self.usernames = ['Chriss']
-		
-		file_path = Path(__file__).parent / "hashed_pw.pkl"
-		with file_path.open("rb") as file:
-			self.hashed_passwords = pickle.load(file)
-			
+		self.usernames = st.secrets['users']
 		self.__build_page_layout(df, hist_cols, cols, dm)
 
 	def __build_page_layout(self, df, hist_cols, cols, dm):
@@ -29,18 +23,18 @@ class InputPage:
 			st.header('Bitte logge dich ein.')
 
 	def __login(self):
-		authenticator = stauth.Authenticate(self.names, self.usernames, self.hashed_passwords,
+		authenticator = stauth.Authenticate(self.usernames, self.usernames, st.secrets['pwd'],
 			'some_cookie_name', 'some_signature_key', cookie_expiry_days=30)
-		
+
 		name, authentication_status, username = authenticator.login("Login", "main")
-		
+
 		if authentication_status:
 			authenticator.logout('Logout', 'main')
 			st.session_state['login'] = True
 		elif authentication_status == False:
 			st.error('Username/password is incorrect')
 			st.session_state['login'] = False
-		elif authentication_status == None:
+		elif authentication_status is None:
 			st.warning('Please enter your username and password')
 			st.session_state['login'] = False
 	
@@ -48,11 +42,11 @@ class InputPage:
 		'''
 		Method for creating a page for inserting and updating new decks and results to databse
 		'''
-		game, tour, deck, history, mod_stats = st.tabs(['Neues Spiel', 'Turniersieger', 'Neues Deck', 'Update', 'Deck modifizieren'])
+		game, tour, deck, history, mod_stats = st.tabs(['Neues Spiel', 'Turniere', 'Neues Deck', 'Update', 'Deck modifizieren'])
 		with game:
 			self.__insert_new_game(dm, df_elo, hist_cols, save_cols)
 		with tour:
-			self.__insert_new_tournament_win(dm, df_elo, hist_cols, save_cols)
+			self.__insert_new_tournament_win(dm, df_elo)
 		with deck:
 			self.__insert_new_deck(dm, df_elo, hist_cols, save_cols)
 		with history:
@@ -64,140 +58,133 @@ class InputPage:
 		'''
 		'''
 		st.header('Trage neue Spielergebnisse ein: ')
-		with st.form('Input new Games'):
-			inputs = st.columns(6)
-			with inputs[1]:
-				deck1 = st.selectbox('Wähle Deck', 
-							options=df_elo['Deck'].unique(),
-							key='deck1')
-				erg1 = st.number_input('Score ', 
-										min_value=0,
-										max_value=10000,
-										step=1,
-										key='erg2')
+		form = st.form('Input new Games')
+		inputs = form.columns(6)
+		# deck and result 1
+		deck1 = inputs[1].selectbox('Wähle Deck', 
+					options=df_elo['Deck'].unique(),
+					key='deck1')
+		erg1 = inputs[1].number_input('Score ', 
+								min_value=0,
+								max_value=10000,
+								step=1,
+								key='erg1')
 				
-			with inputs[3]:
-				deck2 = st.selectbox('Wähle Deck', 
-							options=df_elo['Deck'].unique(),
-							key='deck2')
-				
-				erg2 = st.number_input('Score ', 
-										min_value=0,
-										max_value=10000,
-										step=1,
-										key='erg1')
-				
-			with inputs[4]:
-				if st.form_submit_button("Submit"):
-						dm.update_elo_ratings(deck1, deck2, erg1, erg2, df_elo, hist_cols, save_cols)
-						st.session_state['reload_flag'] = True
-						st.success('Update erfolgreich!!')
-						time.sleep(2)
-						st.experimental_rerun()
+		# deck and result 2
+		deck2 = inputs[3].selectbox('Wähle Deck', 
+					options=df_elo['Deck'].unique(),
+					key='deck2')
+		
+		erg2 = inputs[3].number_input('Score ', 
+								min_value=0,
+								max_value=10000,
+								step=1,
+								key='erg2')
+			
+		if form.form_submit_button("Submit"):
+				dm.update_elo_ratings(deck1, deck2, erg1, erg2, df_elo, hist_cols, save_cols)
+				self.__after_update(inputs[4])
 					
-	def __insert_new_tournament_win(self, dm, df_elo, hist_cols, save_cols):
+	def __insert_new_tournament_win(self, dm, df_elo):
 		'''
 		'''
 		# insert a new tournament win
-		st.header('Trage neuen Turniersieg ein:')
-		with st.form('Tourniersieg'):
-				inputs = st.columns(6)
-				with inputs[1]:
-					deck_tour = st.selectbox('Wähle Deck', 
-								options=df_elo['Deck'].unique(),
-								key='deck tournament')
-				with inputs[2]:
-					tournament = st.selectbox('Wähle Turnier:', 
-												options=['Wanderpokal', 'Local','Fun Pokal'])
-				with inputs[3]:
-					result = st.selectbox('Ergebnis:', 
-												options=['Teilnahme', 'Top','Win'])	
-				with inputs[4]:
-					if st.form_submit_button("Submit"):
-						dm.update_tournament(deck_tour, tournament, result, df_elo, save_cols, hist_cols)
-						st.session_state['reload_flag'] = True
-						st.success('Update erfolgreich!!')
-						time.sleep(2)
-						st.experimental_rerun()
+		st.header('Trage neues Turnier ein:')
+		form = st.form('Turniere:')
+		inputs = form.columns(6)
+		# choose deck 1
+		result = {'Deck':inputs[1].selectbox('Wähle Deck', 
+					options=df_elo['Deck'].unique(),
+					key='deck tournament')}
+		result['Win'] = inputs[1].number_input('Wins', min_value=0, step=1)
+		# choose tournament
+		result['Mode'] = inputs[2].selectbox('Wähle Turnier:', 
+									options=['Wanderpokal', 'Local','Fun Pokal', 'Regional'])
+		result['Draw'] = inputs[2].number_input('Draws', min_value=0, step=1)
+		# give result
+		result['Standing'] = inputs[3].selectbox('Ergebnis:', 
+									options=['Teilnahme', 'Top','Win'])
+		result['Loss'] = inputs[3].number_input('Losses', min_value=0, step=1)	
+		# get date
+		result['Date'] = inputs[4].text_input('Datum:', max_chars=10, placeholder='1970-01-01')
+		
+		if form.form_submit_button("Submit"):
+			dm.insert_tournament(result)
+			self.__after_update(inputs[4])
 
 	def __insert_new_deck(self, dm, df_elo, hist_cols, save_cols):
 		'''
 		'''
 		# insert a new deck
 		st.header('Trage neues Deck ein:')
-		with st.form('neies_deck'):
-				inputs = st.columns(6)
-				with inputs[1]:
-					new_deck = st.text_input('Names des neuen Decks', key='new deck')
-					owner = st.text_input('Names des Spielers', key='player')
-					deck_type = st.selectbox('Wähle einen Decktype:',
-												options=df_elo['Type'].unique(), key='decktype')
-				with inputs[2]:
-					attack = st.number_input('Attack-Rating', min_value=0, max_value=5, step=1, key='attack')
-					control = st.number_input('Control-Rating', min_value=0, max_value=5, step=1, key='control')
-					resilience = st.number_input('Resilience-Rating', min_value=0, max_value=5, step=1, key='resilience')
+		form = st.form('neies_deck')
+		inputs = form.columns(6)
+		# deck, player and type
+		new_deck = inputs[1].text_input('Names des neuen Decks', key='new deck')
+		owner = inputs[1].text_input('Names des Spielers', key='player')
+		deck_type = inputs[1].selectbox('Wähle einen Decktype:',
+									options=df_elo['Type'].unique(), key='decktype')
+		# attack, control and resiliance
+		attack = inputs[2].number_input('Attack-Rating', min_value=0, max_value=5, step=1, key='attack')
+		control = inputs[2].number_input('Control-Rating', min_value=0, max_value=5, step=1, key='control')
+		resilience = inputs[2].number_input('Resilience-Rating', min_value=0, max_value=5, step=1, key='resilience')
 					
-				with inputs[3]:
-					recovery = st.number_input('Recovery-Rating', min_value=0, max_value=5, step=1, key='recovery')
-					combo = st.number_input('Combo-Rating', min_value=0, max_value=5, step=1, key='combo')
-					consistency = st.number_input('Consistency-Rating', min_value=0, max_value=5, step=1, key='consistency')
+		# recovery, combo and consistency
+		recovery = inputs[3].number_input('Recovery-Rating', min_value=0, max_value=5, step=1, key='recovery')
+		combo = inputs[3].number_input('Combo-Rating', min_value=0, max_value=5, step=1, key='combo')
+		consistency = inputs[3].number_input('Consistency-Rating', min_value=0, max_value=5, step=1, key='consistency')
 					
-				with inputs[4]:
-					if st.form_submit_button("Submit"):
-						dm.insert_new_deck(new_deck, owner, attack, control, recovery, consistency, combo, resilience, deck_type)
-						st.session_state['reload_flag'] = True
-						st.success('Update erfolgreich!!')
-						time.sleep(2)
-						st.experimental_rerun()
+		if form.form_submit_button("Submit"):
+			dm.insert_new_deck(new_deck, owner, attack, control, recovery, consistency, combo, resilience, deck_type)
+			self.__after_update(inputs[4])
 				
 	def __create_elo_history(self, dm, df_elo, hist_cols, save_cols):
 		'''
 		'''
 		# set current elo in history by actual month and year	
 		st.header('Update History:')
-		with st.form('history_update'):
-				inputs = st.columns(6)
-				with inputs[4]:
-					if st.form_submit_button("Submit"):
-						dm.update_history(df_elo, hist_cols, save_cols)
-						st.session_state['reload_flag'] = True
-						st.success('Update erfolgreich!!')
-						time.sleep(2)
-						st.experimental_rerun()
+		form =  st.form('history_update')
+		inputs = form.columns(6)		
+		if form.form_submit_button("Submit"):
+			dm.update_history(df_elo, hist_cols, save_cols)
+			self.__after_update(inputs[4])
 
 	def __modify_deck(self, dm, df_elo, hist_cols, save_cols):
 		'''
 		'''
 		# modify deck stats 				
 		st.header('Modfiziere Deckstats:')
-		with st.form('Mod Stats'):
-				inputs = st.columns(6)
-				with inputs[1]:
-					deck_choose = st.selectbox('Wähle Deck', 
+		form = st.form('Mod Stats')
+		inputs = form.columns(6)
+		# choosen deck
+		deck_choose = inputs[1].selectbox('Wähle Deck', 
 								options=df_elo['Deck'].unique(),
 								key='deck_modify')
 					
-				with inputs[2]:
-					in_stats = st.selectbox('Wähle Eigenschaft zum verändern:',
-									options=['Attack', 'Control', 	'Recovery',
-											'Consistensy',	 'Combo', 'Resilience'])
-					modif_in = st.number_input('Rating:',
-												min_value=0,
-												max_value=5,
-												step=1,
-												key='type_modifier')
+		# stats and values
+		in_stats = inputs[2].selectbox('Wähle Eigenschaft zum verändern:',
+						options=['Attack', 'Control', 	'Recovery',
+								'Consistensy',	 'Combo', 'Resilience'])
+		modif_in = inputs[2].number_input('Rating:',
+									min_value=0,
+									max_value=5,
+									step=1,
+									key='type_modifier')
 					
-				with inputs[3]:
-					in_stats_type = st.selectbox('Wähle Type:',
-									options=['Type'])
-					new_type = st.selectbox('Neuer Type:',
-											options=df_elo['Type'].unique())
-					
-				with inputs[4]:
-					if st.form_submit_button("Submit"):
-						dm.update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, hist_cols, save_cols)
-						st.session_state['reload_flag'] = True
-						st.success('Update erfolgreich!!')
-						time.sleep(2)
-						st.experimental_rerun()
+		# type and value
+		in_stats_type = inputs[3].selectbox('Wähle Type:',
+						options=['Type'])
+		new_type = inputs[3].selectbox('Neuer Type:',
+								options=df_elo['Type'].unique())
+		
+		# submit
+		if form.form_submit_button("Submit"):
+			dm.update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, hist_cols, save_cols)
+			self.__after_update(inputs[3])			
+
+	def __after_update(self, pos):
+		st.session_state['reload_flag'] = True
+		pos.success('Update erfolgreich!!')
+		time.sleep(2)
+		st.experimental_rerun()
 				

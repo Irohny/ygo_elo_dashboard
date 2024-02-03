@@ -3,11 +3,7 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-import matplotlib
-import streamlit.components.v1 as components
 from streamlit_timeline import timeline
-import bar_chart_race as bcr
-import base64
 import datetime
 from pages._pages.Visualization import Visualization
 
@@ -24,6 +20,7 @@ class FrontPage:
 		:param hist_cols: list of column names with old elo
 		'''
 		# build page layout
+		self.axis_color = 'black'
 		self.vis = Visualization()
 		self.__build_page_layout(df, tdf, hist_cols)
 
@@ -53,18 +50,11 @@ class FrontPage:
 			with cols[1]:
 				st.title('Top 5 Zeitstrahl')
 				self.__time_line_widget(df, hist_cols)
-				#st.markdown('start')
-				#rbc = self.__creat_racing_bar_chart(df, hist_cols).data
-				#st.markdown('end')
-				#start = rbc.find('base64,')+len('base64,')
-				#end = rbc.find('">')
-				#video = base64.b64decode(rbc[start:end])
-				#st.video(video)
 			with cols[2]:
 				st.markdown('')
 				st.markdown('')
 				fig = self.__plot_deck_desity(np.array(df['Elo'].values).squeeze())
-				st.markdown(f"<h4 style='text-align: center; color: withe;' >Elo-Verteilung</h4>", unsafe_allow_html=True)
+				st.markdown("<h4 style='text-align: center; color: withe;' >Elo-Verteilung</h4>", unsafe_allow_html=True)
 				st.pyplot(fig, transparent=True)
 			
 	def __first_kpi_row(self, df, tdf, n):
@@ -75,25 +65,19 @@ class FrontPage:
 		:param tdf: dataframe with tournament data
 		:param n: number of all decks 
 		'''
-		cols_layout = st.columns([2,2,2,2,2,2])
+		cols = st.columns([2,2,2,2,2,2])
 		# first column with number of decks
-		with cols_layout[0]:
-			st.metric(f":flower_playing_cards: Decks in Wertung:", n)
+		cols[0].metric(":flower_playing_cards: Decks in Wertung:", n)
 		# second columns with number of matches
-		with cols_layout[1]:
-			st.metric(f":crossed_swords: Gesamtzahl Matches:", int(df['Matches'].sum()/2))
+		cols[1].metric(":crossed_swords: Gesamtzahl Matches:", int(df['Matches'].sum()/2))
 		# third column with number of games
-		with cols_layout[2]:
-			st.metric(f":crossed_swords: Gesamtzahl Spiele:", int((df['Siege'].sum()+df['Remis'].sum()+df['Niederlage'].sum())/2))
+		cols[2].metric(":crossed_swords: Gesamtzahl Spiele:", int((df['Siege'].sum()+df['Remis'].sum()+df['Niederlage'].sum())/2))
 		# fourth column with number of player
-		with cols_layout[3]:
-			st.metric(f":bust_in_silhouette: Anzahl Spieler:", len(df['Owner'].unique()))
+		cols[3].metric(":bust_in_silhouette: Anzahl Spieler:", len(df['Owner'].unique()))
 		# fourth column with number of player
-		with cols_layout[4]:
-			st.metric(':bank: Turnierteilnahmen', len(tdf))
+		cols[4].metric(':bank: Turnierteilnahmen', len(tdf))
 		# fourth column with number of player
-		with cols_layout[5]:
-			st.metric(':medal: Top-Rate', f'{np.round(len(tdf[tdf["Standing"]=="Top"])/len(tdf)*100,2)}%')
+		cols[5].metric(':medal: Top-Rate', f'{np.round(len(tdf[tdf["Standing"]=="Top"])/len(tdf)*100,2)}%')
 
 	def __second_kpi_row(self, df, tdf, hist_cols):
 		'''
@@ -106,75 +90,75 @@ class FrontPage:
 		df_max = df[hist_cols+['Elo']].agg(['idxmax', 'max'])
 		df_min = df[df[hist_cols+['Elo']]>0][hist_cols+['Elo']].agg(['idxmin', 'min'])
 		# define layout columns with header for the following icons and metrics
-		cols_layout = st.columns([2,2,4,2,2])
-		# first column: all over best elo
-		with cols_layout[0]:
-			st.header('Höchste Elo:')
-			deck = df.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']
-			elo = int(df_max.loc['max', :].max())
-			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img, use_column_width=True)
-			st.subheader(f"{deck} {elo}")
-		# second column: actual best elo	
-		with cols_layout[1]:
-			st.header('Beste Elo:')
-			deck = df.at[int(df_max.at['idxmax', 'Elo']), 'Deck']
-			elo = int(df_max.at['max', 'Elo'])
-			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img, use_column_width=True)
-			st.subheader(f"{deck} {elo}")
-		# tournament standings
-		with cols_layout[2]:
-			tmp = tdf[['Deck', 'Win', 'Loss', 'Draw', 'Standing']]
-			tops = tdf[tdf['Standing']=='Top'].groupby(by='Deck').count()
-			counts = tdf[['Standing', 'Deck']].groupby(by='Deck').count()
-			tmp['Standing'] = tmp['Standing'].apply(self.__tournament_points)
-			tmp['Points'] = 3*tmp['Win'] + tmp['Draw'] + 5*tmp['Standing']
-			tmp = tmp.groupby(by='Deck').sum()
-			tmp.sort_values(by='Points', ascending=False, inplace=True)
-			#tmp.set_index('Deck', inplace=True)
-			st.header("Turnierdecks:")
-			inside = cols_layout[2].columns([1, 4, 1,1,1,1,1,2])
-			for pos, idx in enumerate(tmp.index):
-				if pos>9:
-					continue
-				if idx in tops.index.to_list():
-					n_tournaments = counts.at[idx, 'Standing']
-					top_rate = np.round(100*tops.at[idx, 'Standing']/n_tournaments,2)
-				elif idx in counts.index.to_list():
-					n_tournaments = counts.at[idx, 'Standing']
-					top_rate = 0
-				else:
-					n_tournaments = 0
-					top_rate = 0
-				tmp.at[idx, 'Top Rate'] = f"{top_rate}%"
-				tmp.at[idx, 'Platz'] = pos+1
-				tmp.at[idx, 'Turniere'] = n_tournaments
-			tmp = tmp[tmp['Platz']<=10]
-			tmp.reset_index(inplace=True)
-			tmp.rename(columns={'Win':'S', 'Draw':'U', 'Loss':'N', 'Points':'Punkte'}, inplace=True)
-			st.dataframe(tmp[['Platz', 'Deck','Punkte','S', 'U', 'N', 'Turniere', 'Top Rate']],
-				hide_index=True)
-			
-			
-			#st.dataframe(df_plot.head(10), use_container_width=True)
+		cols = st.columns([2,2,4,2,2])
 
+		# first column: all over best elo
+		cols[0].header('Höchste Elo:')
+		deck = df.at[int(df_max.at['idxmax', df_max.loc['max', :].idxmax()]), 'Deck']
+		elo = int(df_max.loc['max', :].max())
+		self.__deck_image_plot(cols[0], deck, elo)
+		
+		# second column: actual best elo	
+		
+		cols[1].header('Beste Elo:')
+		deck = df.at[int(df_max.at['idxmax', 'Elo']), 'Deck']
+		elo = int(df_max.at['max', 'Elo'])
+		self.__deck_image_plot(cols[1], deck, elo)
+
+		# tournament standings
+		tmp = tdf[['Deck', 'Win', 'Loss', 'Draw', 'Standing']]
+		tops = tdf[tdf['Standing']=='Top'].groupby(by='Deck').count()
+		counts = tdf[['Standing', 'Deck']].groupby(by='Deck').count()
+		tmp['Standing'] = tmp['Standing'].apply(self.__tournament_points)
+		tmp['Points'] = 3*tmp['Win'] + tmp['Draw'] + 5*tmp['Standing']
+		tmp = tmp.groupby(by='Deck').sum()
+		tmp.sort_values(by='Points', ascending=False, inplace=True)
+		#tmp.set_index('Deck', inplace=True)
+		cols[2].header("Turnierdecks:")
+		for pos, idx in enumerate(tmp.index):
+			if pos>9:
+				continue
+			if idx in tops.index.to_list():
+				n_tournaments = counts.at[idx, 'Standing']
+				top_rate = np.round(100*tops.at[idx, 'Standing']/n_tournaments,2)
+			elif idx in counts.index.to_list():
+				n_tournaments = counts.at[idx, 'Standing']
+				top_rate = 0
+			else:
+				n_tournaments = 0
+				top_rate = 0
+			tmp.at[idx, 'Top Rate'] = f"{top_rate}%"
+			tmp.at[idx, 'Platz'] = pos+1
+			tmp.at[idx, 'Turniere'] = n_tournaments
+		tmp = tmp[tmp['Platz']<=10]
+		tmp.reset_index(inplace=True)
+		tmp.rename(columns={'Win':'S', 'Draw':'U', 'Loss':'N', 'Points':'Punkte'}, inplace=True)
+		cols[2].dataframe(tmp[['Platz', 'Deck','Punkte','S', 'U', 'N', 'Turniere', 'Top Rate']],
+			hide_index=True)
+			
 		# third column: all over worst elo
-		with cols_layout[3]:
-			st.header('geringste Elo:')
-			deck = df.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']
-			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			elo = int(df_min.loc['min', :].min()) 
-			st.image(img, use_column_width=True)
-			st.subheader(f"{deck} {elo}")
+		cols[3].header('geringste Elo:')
+		deck = df.at[df_min.at['idxmin', df_min.loc['min', :].idxmin()], 'Deck']
+		img = plt.imread(f'./Deck_Icons/{deck}.png')
+		elo = int(df_min.loc['min', :].min()) 
+		self.__deck_image_plot(cols[3], deck, elo)
+
 		# fourth column: actual worst elo
-		with cols_layout[4]:
-			st.header('niedrigste Elo:')
-			deck = df.at[df_min.loc['idxmin', 'Elo'], 'Deck']
-			elo = int(df_min.loc['min', 'Elo'].min())
+		cols[4].header('niedrigste Elo:')
+		deck = df.at[df_min.loc['idxmin', 'Elo'], 'Deck']
+		elo = int(df_min.loc['min', 'Elo'].min())
+		self.__deck_image_plot(cols[4], deck, elo)
+		
+	def __deck_image_plot(self, col, deck, elo):
+		'''
+		:param col: streamlit column element
+		'''
+		try:
 			img = plt.imread(f'./Deck_Icons/{deck}.png')
-			st.image(img, use_column_width=True)
-			st.subheader(f"{deck} {elo}")
+			col.image(img, use_column_width=True)
+		except Exception:
+			col.error('No image')
+		col.subheader(f"{deck} {elo}")
 
 	def __tournament_points(self, x):
 		"""
@@ -190,18 +174,19 @@ class FrontPage:
           					"text": "Die besten Decks im Vergleich"
         					}},
 					'events':[]}
-		for i, date in enumerate(hist_cols):
-			datum = {"year":"","month":""}
-			text = {"headline": "","text": ""}
-			
-			datum['year'] = str(date[3:])
-			datum['month'] = str(int(date[:2]))
+		
+		for date in hist_cols:
+			# setup date
+			datum = {"year":str(date[3:]),
+					"month":str(int(date[:2]))}
+			# set up placements 
 			test = df[[date, 'Deck']].copy().sort_values(by=date, ascending=False).reset_index(drop=True)
-			text['text'] = f"<p>{test.at[0, 'Deck']} {int(test.at[0, date])}<p>\
+			text = {'text': f"<p>{test.at[0, 'Deck']} {int(test.at[0, date])}<p>\
 							<p>{test.at[1, 'Deck']} {int(test.at[1, date])}<p>\
 							<p>{test.at[2, 'Deck']} {int(test.at[2, date])}<p>\
 							<p>{test.at[3, 'Deck']} {int(test.at[3, date])}<p>\
-							<p>{test.at[4, 'Deck']} {int(test.at[4, date])}<p>"
+							<p>{test.at[4, 'Deck']} {int(test.at[4, date])}<p>",
+					'headline':""}
 			event = {"start_date": datum,
         			"text":text}
 			time_json['events'].append(event)
@@ -235,47 +220,47 @@ class FrontPage:
 					st.markdown(f"<h5 style='text-align: center; color: withe;' >{idx} {d}</h5>", unsafe_allow_html=True)
 					st.markdown(f"<h5 style='text-align: center; color: withe;' >Decks {n}</h5>", unsafe_allow_html=True)
 
-	def __vergleiche_stile(self, df):
+	def __vergleiche_stile(self, df):  # sourcery skip: extract-duplicate-method
 		'''
 		'''
 		types = df['Type'].unique()
 		histo, viobox = st.columns([1, 1])
 
 		
-		with histo:
-			n_types = len(types)
-			fig, axs = plt.subplots(1, figsize=(8,5))
-			n_decks = np.zeros(n_types)
-			for k in range(n_types):
-				n_decks[k] = len(df[df['Type']==types[k]])
-			axs.bar(range(n_types), n_decks, color='gray')
-			axs.set_xticks(range(n_types))
-			axs.set_xticklabels(types, rotation=-45, color='white')
-			axs.set_ylabel('Anzahl Decks', color='white')
-			axs.grid()
-			axs.set_title('Verteilung der Decks auf die Typen', color='white')
-			axs.spines['bottom'].set_color('white')
-			axs.spines['left'].set_color('white')
-			axs.tick_params(colors='white', which='both')
-			st.pyplot(fig, transparent=True)
+		# histogram plot part
+		n_types = len(types)
+		fig, axs = plt.subplots(1, figsize=(8,5))
+		n_decks = np.zeros(n_types)
+		for k in range(n_types):
+			n_decks[k] = len(df[df['Type']==types[k]])
+		axs.bar(range(n_types), n_decks, color='gray')
+		axs.set_xticks(range(n_types))
+		axs.set_xticklabels(types, rotation=-45, color=self.axis_color)
+		axs.set_ylabel('Anzahl Decks', color=self.axis_color)
+		axs.grid()
+		axs.set_title('Verteilung der Decks auf die Typen', color=self.axis_color)
+		axs.spines['bottom'].set_color(self.axis_color)
+		axs.spines['left'].set_color(self.axis_color)
+		axs.tick_params(colors=self.axis_color, which='both')
+		histo.pyplot(fig, transparent=True)
 				
-		with viobox:
-			fig, axs = plt.subplots(1, figsize=(8,5))
-			for idx, tmp_type in enumerate(types):
-				axs.violinplot(df[df['Type']==tmp_type]['Elo'], positions=[idx], showmeans=True, showextrema=False, showmedians=False)
-				axs.boxplot(df[df['Type']==tmp_type]['Elo'], positions=[idx])
-			axs.set_title('Eloverteilung pro Decktyp', color='white')
-			axs.set_ylabel('Elo-Rating', color='white')
-			axs.set_xticks(range(n_types))
-			axs.set_xticklabels(types, rotation=-45, color='white')
-			axs.grid()
+		# violin plot part
+		fig, axs = plt.subplots(1, figsize=(8,5))
+		for idx, tmp_type in enumerate(types):
+			axs.violinplot(df[df['Type']==tmp_type]['Elo'], positions=[idx], showmeans=True, showextrema=False, showmedians=False)
+			axs.boxplot(df[df['Type']==tmp_type]['Elo'], positions=[idx])
+		axs.set_title('Eloverteilung pro Decktyp', color=self.axis_color)
+		axs.set_ylabel('Elo-Rating', color=self.axis_color)
+		axs.set_xticks(range(n_types))
+		axs.set_xticklabels(types, rotation=-45, color=self.axis_color)
+		axs.grid()
+		
+		axs.spines['bottom'].set_color(self.axis_color)
+		axs.spines['left'].set_color(self.axis_color)
+		axs.tick_params(colors=self.axis_color, which='both')
+		viobox.pyplot(fig, transparent=True)
 			
-			axs.spines['bottom'].set_color('white')
-			axs.spines['left'].set_color('white')
-			axs.tick_params(colors='white', which='both')
-			st.pyplot(fig, transparent=True)
-			
-	def __plot_deck_desity(self, values):
+	def __plot_deck_desity(self, values):  # sourcery skip: extract-duplicate-method  # sourcery skip: extract-duplicate-method
 		'''
 		
 		'''
@@ -295,7 +280,7 @@ class FrontPage:
 		# create grid for different subplots
 		spec = gridspec.GridSpec(ncols=1, nrows=2, hspace=0, height_ratios=[6, 1])
 		axs = fig.add_subplot(spec[0])
-		#axs.set_title('Elo-Verteilung', fontsize=20, color='white')
+		#axs.set_title('Elo-Verteilung', fontsize=20, color=self.axis_color)
 		axs1 = fig.add_subplot(spec[1])
 		
 		axs2 = axs.twinx()
@@ -311,26 +296,26 @@ class FrontPage:
 		axs2.plot(x, self.__gauss(x, mean, std), label='PDF', color='gray')
 		#
 		axs2.plot([mean+2*std, mean+2*std], [0, self.__gauss(mean+2*std, mean, std)], color='gray')
-		axs2.text(mean+2*std, self.__gauss(mean+2*std, mean, std),'%.f' % (mean+2*std), fontsize=15, color='white')
+		axs2.text(mean+2*std, self.__gauss(mean+2*std, mean, std),'%.f' % (mean+2*std), fontsize=15, color=self.axis_color)
 
 		axs2.plot([mean+std, mean+std], [0, self.__gauss(mean+std, mean, std)], color='gray')
-		axs2.text(mean+std, self.__gauss(mean+std, mean, std),'%.f' % (mean+std), fontsize=15, color='white')
+		axs2.text(mean+std, self.__gauss(mean+std, mean, std),'%.f' % (mean+std), fontsize=15, color=self.axis_color)
 
 		axs2.plot([mean, mean], [0, self.__gauss(mean, mean, std)], color='gray')
-		axs2.text(mean, self.__gauss(mean, mean, std), '%.f' % (mean), fontsize=15, color='white')
+		axs2.text(mean, self.__gauss(mean, mean, std), '%.f' % (mean), fontsize=15, color=self.axis_color)
 		
 		axs2.plot([mean-std, mean-std], [0, self.__gauss(mean-std, mean, std)], color='gray')
-		axs2.text((mean-std)-20, self.__gauss(mean-std, mean, std),'%.f' % (mean-std), fontsize=15, color='white')
+		axs2.text((mean-std)-20, self.__gauss(mean-std, mean, std),'%.f' % (mean-std), fontsize=15, color=self.axis_color)
 
 		axs2.plot([mean-2*std, mean-2*std], [0, self.__gauss(mean-2*std, mean, std)], color='gray')
-		axs2.text((mean-2*std)-20, self.__gauss(mean-2*std, mean, std),'%.f' % (mean-2*std), fontsize=15, color='white')
+		axs2.text((mean-2*std)-20, self.__gauss(mean-2*std, mean, std),'%.f' % (mean-2*std), fontsize=15, color=self.axis_color)
 
 		# Data
 		axs.bar(bins, H, abs(bins[1]-bins[0]), alpha=0.65, color='gray', label='Deck Histogram')
 
 		# Layout
-		axs.set_ylabel('Anzahl der Decks', fontsize=20, color='white')
-		axs2.set_ylabel('Wahrscheinlichkeitsdichte', fontsize=20, color='white')
+		axs.set_ylabel('Anzahl der Decks', fontsize=20, color=self.axis_color)
+		axs2.set_ylabel('Wahrscheinlichkeitsdichte', fontsize=20, color=self.axis_color)
 		axs.grid()
 		axs.legend(loc='upper left', fontsize=15)
 		axs2.legend(loc='upper right', fontsize=15)
@@ -353,57 +338,57 @@ class FrontPage:
 		offset1 = 25
 		offset = 20
 		
-		axs1.xaxis.label.set_color('white')
-		axs1.yaxis.label.set_color('white')
-		axs2.xaxis.label.set_color('white')
-		axs2.yaxis.label.set_color('white')
+		axs1.xaxis.label.set_color(self.axis_color)
+		axs1.yaxis.label.set_color(self.axis_color)
+		axs2.xaxis.label.set_color(self.axis_color)
+		axs2.yaxis.label.set_color(self.axis_color)
 		
-		axs1.spines['bottom'].set_color('white')
-		axs1.spines['left'].set_color('white')
-		axs1.spines['top'].set_color('white')
-		axs1.spines['right'].set_color('white')
-		axs1.tick_params(colors='white', which='both')
+		axs1.spines['bottom'].set_color(self.axis_color)
+		axs1.spines['left'].set_color(self.axis_color)
+		axs1.spines['top'].set_color(self.axis_color)
+		axs1.spines['right'].set_color(self.axis_color)
+		axs1.tick_params(colors=self.axis_color, which='both')
 		
-		axs2.spines['bottom'].set_color('white')
-		axs2.spines['left'].set_color('white')
-		axs2.spines['top'].set_color('white')
-		axs2.spines['right'].set_color('white')
-		axs2.tick_params(colors='white', which='both')
+		axs2.spines['bottom'].set_color(self.axis_color)
+		axs2.spines['left'].set_color(self.axis_color)
+		axs2.spines['top'].set_color(self.axis_color)
+		axs2.spines['right'].set_color(self.axis_color)
+		axs2.tick_params(colors=self.axis_color, which='both')
 		
-		axs1.text(mean-3*std-offset, 0.65, Label[0], fontsize=20, color='white')
+		axs1.text(mean-3*std-offset, 0.65, Label[0], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean-4*std)&(values<mean-2*std)])
-		axs1.text(mean-3*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean-3*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
-		axs1.text(mean-1.5*std-offset, 0.65, Label[1], fontsize=20, color='white')
+		axs1.text(mean-1.5*std-offset, 0.65, Label[1], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean-2*std)&(values<mean-std)])
-		axs1.text(mean-1.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean-1.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
-		axs1.text(mean-0.5*std-offset, 0.65, Label[2], fontsize=20, color='white')
+		axs1.text(mean-0.5*std-offset, 0.65, Label[2], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean-std)&(values<mean)])
-		axs1.text(mean-0.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean-0.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
-		axs1.text(mean+0.5*std-offset, 0.65, Label[3], fontsize=20, color='white')
+		axs1.text(mean+0.5*std-offset, 0.65, Label[3], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean)&(values<mean+std)])
-		axs1.text(mean+0.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean+0.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
-		axs1.text(mean+1.5*std-offset, 0.65, Label[4], fontsize=20, color='white')
+		axs1.text(mean+1.5*std-offset, 0.65, Label[4], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean+std)&(values<mean+2*std)])
-		axs1.text(mean+1.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean+1.5*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
-		axs1.text(mean+3*std-offset, 0.65, Label[5], fontsize=20, color='white')
+		axs1.text(mean+3*std-offset, 0.65, Label[5], fontsize=20, color=self.axis_color)
 		N = len(values[(values>=mean+2*std)&(values<mean+4*std)])
-		axs1.text(mean+3*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color='white')
+		axs1.text(mean+3*std-offset1, 0.25, '%.f Decks' % (N), fontsize=20, color=self.axis_color)
 		
 		axs1.set_xlim([mean-4*std, mean+4*std])
-		axs1.set_xlabel('ELO', fontsize=20, color='white')
+		axs1.set_xlabel('ELO', fontsize=20, color=self.axis_color)
 		axs1.set_ylim([0, 1])
 		axs1.set(yticklabels=[])  # remove the tick labels
 		axs1.tick_params(left=False)  # remove the ticks
 		axs1.grid()
-		axs1.tick_params(axis='x', labelsize=15, color='white')
-		axs1.tick_params(axis='y', labelsize=15, color='white') 
-		axs2.tick_params(axis='y', labelsize=15, color='white') 
-		axs.tick_params(axis='y', labelsize=15, color='white') 
+		axs1.tick_params(axis='x', labelsize=15, color=self.axis_color)
+		axs1.tick_params(axis='y', labelsize=15, color=self.axis_color) 
+		axs2.tick_params(axis='y', labelsize=15, color=self.axis_color) 
+		axs.tick_params(axis='y', labelsize=15, color=self.axis_color) 
 		return fig
 	
 	def __gauss(self, x, m, s):
@@ -425,31 +410,3 @@ class FrontPage:
 			cbins[ii] = (bins[ii+1]+bins[ii])/2
 
 		return counts, cbins
-	
-	def __creat_racing_bar_chart(self, df, hist_cols):
-		rancing_df = []
-		for col in hist_cols:
-			tmp = df[['Deck', col]].copy()
-			tmp.rename(columns={col:'Elo'}, inplace=True)
-			tmp['Date'] = pd.to_datetime(f'{col[2:]}-{col[:2]}-01')
-			rancing_df.append(tmp)
-		tmp = df[['Deck', 'Elo']].copy()
-		tmp['Date'] = pd.to_datetime(datetime.datetime.now())
-		rancing_df.append(tmp)
-		rancing_df = pd.concat(rancing_df).reset_index(drop=True)
-		
-		rancing_df = rancing_df.pivot(index = "Date", columns = "Deck", values = "Elo").reset_index().rename_axis(None, axis=1)
-		rancing_df.fillna(0, inplace=True)
-		rancing_df.set_index("Date", inplace = True)
-		return bcr.bar_chart_race(df = rancing_df, 
-			    				title = "Elo", 
-								n_bars=10,
-								bar_size=.9,
-								dpi=75,
-    							cmap='dark12',
-								figsize=(16, 10),
-								period_length=1500,
-								steps_per_period=5,
-								bar_label_size=15,
-    							tick_label_size=15,
-								scale='log',)

@@ -9,7 +9,7 @@ class TablePage:
 	'''
 	def __init__(self, df):
 		self.__build_page_layout(df)
-
+		
 	def __build_page_layout(self, df):
 		'''
 		'''
@@ -22,6 +22,7 @@ class TablePage:
 				max_value = int(np.ceil(df['Elo'].max()/10))*10,
 				value = [int(df['Elo'].min()/10)*10, int(np.ceil(df['Elo'].max()/10))*10],
 				step = 10)
+		
 		# filter for players
 		player_list = list(df['Owner'].unique())
 		df_player = pd.DataFrame(index=player_list, columns=['Wähle Spieler'])
@@ -61,7 +62,7 @@ class TablePage:
 						idx.append(idx_deck)
 					elif st.session_state['tournament'] == 'Lokal Win' and df.at[idx_deck, 'Meisterschaft']['Win']['Local']>0:
 						idx.append(idx_deck)
-				if len(idx)>0:
+				if idx:
 					idx = np.concatenate(idx)
 					df_select = df.loc[idx, :].reset_index(drop=True)
 				else:

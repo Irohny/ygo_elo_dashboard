@@ -2,7 +2,7 @@ import streamlit as st
 
 def insert_layout_htmls():
     st.set_page_config(page_title='YGO-Elo-Dashboard', page_icon=':trophy:' ,layout='wide')
-    st.sidebar.markdown(f"<sub style='text-align: center; color: withe;' >Version 4.1.0</sub>", unsafe_allow_html=True)
+    st.sidebar.markdown("<sub style='text-align: center; color: withe;' >Version 4.2.0</sub>", unsafe_allow_html=True)
     hide_st_style = """
             <style>
             #MainMenu {visibility: hidden;}

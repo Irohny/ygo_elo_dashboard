@@ -16,11 +16,11 @@ class Visualization:
     def plotly_gauge_plot(self, value, title='Gewinnrate [%]'):
         """
         Gauge plot component
-        :param value:
-        :param title:
-        :return fig:
+        :param value: values for plotting
+        :param title: title of the plot
+        :return fig: plotly figure object
         """
-        fig = go.Figure(go.Indicator(
+        return go.Figure(go.Indicator(
                                 mode = "gauge+number",
                                 value = value,
                                 
@@ -34,24 +34,23 @@ class Visualization:
                                             {'range': [66, 100], 'color':'green'}],
                                         }
                                         ))
-        
-        # update figure color layout for costum theme
-        #fig.update_layout(width=200,
-        #                height=150)
-        return fig
 
-    def plot_metric(self, label, value, x_data=[], y_data=[], prefix="", suffix="", show_graph=False, color_graph=""):
+    def plot_metric(self, label, value, x_data=None, y_data=None, prefix="", suffix="", show_graph=False, color_graph=""):
         """
         Metric component for timeline plot behind a metric display
-        :param label:
-        :param value:
-        :param x_data:
-        :param y_data:
-        :param prefix:
-        :param suffix:
-        :param show_graph:
-        :param color_graph:
+        :param label: titel of the figure
+        :param value: value for displaying
+        :param x_data: x data for background time series
+        :param y_data: y data of background time series
+        :param prefix: prefix of value
+        :param suffix: suffix of value
+        :param show_graph: bool for showing the backgroung data
+        :param color_graph: color of the background data graph
         """
+        if x_data is None:
+            x_data = []
+        if y_data is None:
+            y_data = []
         fig = go.Figure()
 
         fig.add_trace(
@@ -97,6 +96,11 @@ class Visualization:
     
     def lineplot(self, x_data, y_data, mean):
         """
+        Method for gernating a plotly line plot with mean 
+        :param x_data: data for the x axis
+        :param y_data: data for the y axis
+        :param mean: data for the mean of the  series
+        :return fig: plotly figure object
         """
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=x_data, y=y_data, line_shape='spline',
@@ -154,3 +158,44 @@ class Visualization:
         ax.add_artist(plt.Circle((0, 0), 0.6, color=self.back_color))
 
         return fig
+    
+    def ploty_bar(self, df, xfeat, yfeat, horizontal=True, title=None):
+        """
+        Method for generating a bar plot with plotly
+        :param df: dataframe with the plotting data
+        :param xfeat: column with class feature
+        :param yfeat: column with values
+        :param horizontal: bool for plot orientation
+        :param title: title of the plot
+        :return fig: plotly figure object
+        """
+        if horizontal:
+            x, y, ori = df[yfeat], df[xfeat], 'h'
+        else: 
+            x, y, ori = df[xfeat], df[yfeat], 'v'
+
+        fig = go.Figure(go.Bar(
+            x=x,
+            y=y,
+            orientation=ori,
+            ))
+        fig.update_layout(title_text=title)
+        return fig
+    
+    def plotly_pie(self, df:pd.DataFrame, values:str, names:str, color=None, color_dict:dict=None, mid=0.5, title=''):
+        """
+        Method for a plotly pie cahrt
+        :param df: dataframe with ploting data
+        :param values: name of the value coluumn
+        :param names: name of the group column
+        :param color: color for plotting
+        :param color_dict: dictionaray of names and colors for plotting
+        :param mid: size of the empty space in the plot center
+        :param title: title of the plot
+        :return fig: plotly figure object
+        """
+        fig = px.pie(df, values=values, names=names, hole=mid, color=color,
+                     color_discrete_map=color_dict)
+        fig.update_layout(title_text=title)
+        return fig
+        

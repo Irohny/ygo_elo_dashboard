@@ -33,80 +33,88 @@ class DeckComparisionPage:
 		'''
 		# generate a Multiselect field for choosing the decks that elo stats should displayed
 		deck = st.multiselect('Wähle deine Decks', options = list(df['Deck'].unique()), default = st.session_state['deck'])
+		if not deck:
+			st.stop()
+		
 		# define two tabs for an elo-plot and the statistic comparision
 		plot, stats = st.tabs(['Eloverlauf', 'Statistiken'])
 		# elo plot tab
-		with plot:
-			with st.container():
-				# build a plotly figure with past elo data for choosen decks
-				fig = self.__plot_elo_history(df, deck, hist_cols)
-				if len(deck)>0:
-					st.plotly_chart(fig, use_container_width=True, theme=None, transparent=True)
-		# statistic comparision 
-		with stats:   
-			if len(deck) > 0:
-				# gt number of rows for displaying deck stats
-				# max 4 deck stats per row
-				n_rows = int(np.ceil(len(deck)/4))
-				counter = 0
-				# loop over all rows
-				for r in range(n_rows):
-					# two columns per deck stats
-					columns = st.columns([1,1,1,1,.001])
-					for j in range(4):
-						with columns[j]:
-							if counter+j >= len(deck):
-								continue
-							idx = int(df[df['Deck']==deck[counter+j]].index.to_numpy())
+		plot_cont = plot.container()
+		# build a plotly figure with past elo data for choosen decks
+		fig = self.__plot_elo_history(df, deck, hist_cols)
+		plot_cont.plotly_chart(fig, use_container_width=True, theme=None, transparent=True)
+		# statistic comparision
+		# get number of rows for displaying deck stats
+		# max 4 deck stats per row
+		n_rows = int(np.ceil(len(deck)/4))
+		counter = 0
+		# loop over all rows
+		for _ in range(n_rows):
+			# two columns per deck stats
+			columns = stats.columns([1,1,1,1,.001])
+			for j in range(4):
+				with columns[j]:
+					if counter+j >= len(deck):
+						continue
+					idx = int(df[df['Deck']==deck[counter+j]].index.to_numpy())
 
-							# header
-							st.header(df.at[idx, 'Deck'])
-							st.header(df.at[idx, 'Tier'])
-							# image
-							
+					# header
+					st.header(df.at[idx, 'Deck'])
+					st.header(df.at[idx, 'Tier'])
+					# image
 
-					for i in range(4):
-						if counter >= len(deck):
-								break
-						# get index and game result of current deck
-						idx = int(df[df['Deck']==deck[counter]].index.to_numpy())
-						values = df.loc[idx, ['Siege', 'Remis', 'Niederlage']].to_list()
-						# display text statistics in even columns
 
-						inside_col = columns[i].columns([1,1,1])
-						inside_col[0].metric(f"Matches", f"{int(df.at[idx, 'Matches'])}", f"{int(np.sum(values))} Spiele")
-						#wanderpokal
-						wanderpokal = ''.join(':trophy: ' for i in range(int(df.at[idx, 'Meisterschaft']['Win']['Wanderpokal'])))
-						inside_col[0].markdown('Wanderpokal')
-						inside_col[0].markdown(wanderpokal)
-						# local wins
-						localwin = ''.join(':medal: ' for i in range(int(df.at[idx, 'Local Win'])))
-						inside_col[0].markdown('Local Win')
-						inside_col[0].markdown(localwin)
-						#
-						inside_col[1].metric('Aktuelle Elo', int(df.at[idx, 'Elo']), int(df.at[idx, 'Letzte 3 Monate']))
-						funpokal = ''.join(':star: ' for i in range(int(df.at[idx, 'Meisterschaft']['Win']['Fun Pokal'])))
-						inside_col[1].markdown('Fun Pokal')
-						inside_col[1].markdown(funpokal)
-						
-						inside_col[2].metric('Gegner Stärke', int(df.at[idx, 'dgp']))
-						localtop= ''.join(':star: ' for i in range(int(df.at[idx,'Local Top'])))
-						inside_col[2].markdown(' ')
-						inside_col[2].markdown('Local Top')
-						inside_col[2].markdown(localtop)
-						
-						# generate stats spider plot
-						#plots = columns[i].columns(2)
-						# generate win/lose plot
-						fig = self.vis.plotly_gauge_plot(100*df.at[idx,'Siege']/sum(values)//1)
-						columns[i].plotly_chart(fig, transparent=True,  
-							  					theme=None, use_container_width=True)
-					
-						categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
-						fig = self.vis.make_spider_plot(df.loc[idx, categories].astype(int).to_list())
-						columns[i].plotly_chart(fig, theme=None, transparent=True, use_container_width=True)
-						# update counter for next deck of the decks of interest 
-						counter += 1
+			for i in range(4):
+				if counter >= len(deck):
+						break
+				# get index and game result of current deck
+				idx = int(df[df['Deck']==deck[counter]].index.to_numpy())
+				values = df.loc[idx, ['Siege', 'Remis', 'Niederlage']].to_list()
+				# display text statistics in even columns
+
+				inside_col = columns[i].container(border=True).columns([1,1,1])
+				lower_col = columns[i].container(border=True).columns([1,1,1])
+				inside_col[0].metric(
+					"Matches",
+					f"{int(df.at[idx, 'Matches'])}",
+					f"{int(np.sum(values))} Spiele",
+				)
+				#wanderpokal
+				wanderpokal = ''.join(
+					':trophy: '
+					for _ in range(int(df.at[idx, 'Meisterschaft']['Win']['Wanderpokal']))
+				)
+				lower_col[0].markdown('Wanderpokal')
+				lower_col[0].markdown(wanderpokal)
+				# local wins
+				localwin = ''.join(':medal: ' for _ in range(int(df.at[idx, 'Local Win'])))
+				lower_col[0].markdown('Local Win')
+				lower_col[0].markdown(localwin)
+				#
+				inside_col[1].metric('Aktuelle Elo', int(df.at[idx, 'Elo']), int(df.at[idx, 'Letzte 3 Monate']))
+				funpokal = ''.join(
+					':star: '
+					for _ in range(int(df.at[idx, 'Meisterschaft']['Win']['Fun Pokal']))
+				)
+				lower_col[1].markdown('Fun Pokal')
+				lower_col[1].markdown(funpokal)
+
+				inside_col[2].metric('Gegner Stärke', int(df.at[idx, 'dgp']))
+				localtop = ''.join(':star: ' for _ in range(int(df.at[idx,'Local Top'])))
+				inside_col[2].markdown(' ')
+				lower_col[2].markdown('Local Top')
+				lower_col[2].markdown(localtop)
+
+				# generate win/lose plot
+				fig = self.vis.plotly_gauge_plot(100*df.at[idx,'Siege']/sum(values)//1)
+				columns[i].plotly_chart(fig, transparent=True,  
+										theme=None, use_container_width=True)
+
+				categories = ['Attack', 'Control', 'Recovery', 'Consistensy', 'Combo', 'Resilience']
+				fig = self.vis.make_spider_plot(df.loc[idx, categories].astype(int).to_list())
+				columns[i].plotly_chart(fig, theme=None, transparent=True, use_container_width=True)
+				# update counter for next deck of the decks of interest 
+				counter += 1
 
 	def __plot_elo_history(self, df, deck, hist_cols):
 		'''
@@ -135,8 +143,8 @@ class DeckComparisionPage:
 		# set empty historic elo (value:0) to NaN and drop them
 		df_plot[df_plot['Elo']==0]=np.nan
 		#df_plot = df_plot.dropna()
-		min = df_plot['Elo'].min()-15
-		max = df_plot['Elo'].max()+15
+		elo_min = df_plot['Elo'].min()-15
+		elo_max = df_plot['Elo'].max()+15
 		df_plot['Elo'] = df_plot['Elo'].fillna(0)
 		df_plot = df_plot.sort_values(by='helper', ascending=True).reset_index(drop=True)
 		# generate a plotly figure with elo ratings
@@ -145,6 +153,6 @@ class DeckComparisionPage:
 		fig.update_traces(textposition="bottom right", line=dict(width=5), hovertemplate=None)
 		# update figure layout
 		fig.update_layout(font_size=15, title='Eloverlauf', xaxis_title='Datum', yaxis_title='Elo',
-						hovermode="x unified",yaxis=dict(range=[min,max]))
+						hovermode="x unified",yaxis=dict(range=[elo_min, elo_max]))
 		
 		return fig
