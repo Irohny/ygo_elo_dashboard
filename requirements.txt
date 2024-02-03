@@ -8,3 +8,4 @@ plotly==5.10.0
 extra-streamlit-components==0.1.55
 streamlit-timeline==0.0.2
 matplotlib==3.3.4
+scipy==1.6.1
