@@ -34,7 +34,8 @@ class DeckBuilderPage:
         self.feat_cols = ['image', 'Karte', 'Anzahl', 'Tag', 'price', 'archetype', 'frameType']
         self.vis = Visualization()
         # build page
-        self.__reset_session_state()
+        if 'main_deck' not in st.session_state:
+            self.__reset_session_state()
         self.ygo_db = self.__ygo_api()
         self.__build_page_layout()
 
