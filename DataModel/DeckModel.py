@@ -270,11 +270,10 @@ class DeckModel:
 		df.fillna(0, inplace=True)
 		# estimate if deck is active
 		all_equal = df['Elo']==df[self.hist_cols[-1]]
-		older_as_a_year = (df[self.hist_cols[-1]]>0)
 		for col in self.hist_cols[-4:-2]:
 			all_equal = (all_equal)&(df['Elo']==df[col])
-			older_as_a_year = (older_as_a_year)&(df[col]>0)
-		df['active'] = (~all_equal)&(older_as_a_year)
+		
+		df['active'] = (~all_equal)
 		# generate Platz
 		df.sort_values('Elo', ascending=False, inplace=True, ignore_index=True)
 		df['EloPlatz'] = df.index.to_numpy()+1

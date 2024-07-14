@@ -118,7 +118,7 @@ class DetailedInfoPage:
         inside = pos.columns([1, 1, 1, 1])
         # Metric Block
         inside[0].metric("Aktueller Rang:", value=f"{int(deck['EloPlatz'])}")
-        inside[0].metric("Besser als:", f"{deck['percentage'] :.2f}%")
+        inside[0].metric("Besser als:", f"{deck['percentage']}%")
         
         inside[1].metric('Matches', int(deck['Matches']))
         inside[1].metric('Spiele:', f"{int(deck['Siege']+deck['Remis']+deck['Niederlage'])}")

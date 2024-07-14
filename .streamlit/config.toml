@@ -1,5 +1,13 @@
 [theme]
-primaryColor="#60a8ea"
-backgroundColor="#d1e6f9"
-secondaryBackgroundColor="#60a8ea"
-textColor="#ffffff"
+primaryColor = '#1b1f23'
+backgroundColor = '#0e1117'
+secondaryBackgroundColor = '#161b22'
+textColor = '#c9d1d9'
+font = "sans serif"
+
+[global]
+# By default, turn on dark mode for everyone
+initialSidebarState = "expanded"
+# These settings are used when someone first opens your app, but they
+# can change it in the settings menu.
+browser.gatherUsageStats = false

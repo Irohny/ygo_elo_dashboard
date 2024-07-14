@@ -7,11 +7,10 @@ from DataModel.TournamentModel import TournamentModel
 def load_data()->None:
     # intialization of session sate
     if 'login' not in st.session_state:
-        st.session_state['sorting'] = ['Elo-Rating']
-        st.session_state['tournament'] = 'Alle'
+        #st.session_state['sorting'] = ['Elo-Rating']
+        #st.session_state['tournament'] = 'Alle'
         st.session_state['deck_i'] = ''
         st.session_state['deck'] = []
-        st.session_state['reload_flag'] = False
         st.session_state['login'] = None
         
     # Deck Data

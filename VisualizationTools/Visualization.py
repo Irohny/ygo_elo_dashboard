@@ -293,17 +293,7 @@ class Visualization:
             text=df['Mode'] + ' ' +df['Standing'] +'<br>' + df['Date'].astype(str),
             textposition=[get_text_position(value) for value in df['Loss']]
         ))
-
-        """# Differenz zwischen Sieg und Niederlage berechnen
-        df['Diff'] = df['Win'] - df['Loss']
-
-        fig.add_trace(go.Bar(
-            x=df.index,
-            y=df['Diff'],
-            name='Sieg/Niederlage Differenz',
-            marker_color='blue',
-        ))
-        """        
+        
         # Layout aktualisieren
         fig.update_layout(
             barmode='stack',
@@ -321,4 +311,45 @@ class Visualization:
         fig.update_xaxes(title_text='Turnier')
         fig.update_yaxes(title_text='Anzahl Matches')
         
+        return 
+    
+    def deck_lineplot(self, decks:pd.DataFrame, hist_cols:str):
+        '''
+        Method for plotting the elo history of a set of choosen deck
+        :param df: dataframe with deck elo ratings
+        :param deck: list with choosen decks
+        :param hist_cols: list with historic elo columns
+        :return fig: plotly figure object
+        '''
+        # proof if a deck was choosen
+        if decks.empty:
+            return None
+        # generate a date list
+        dates = hist_cols+['Elo']
+        df_plot = []
+        # loop over all choosen decks and get elo of the dates
+        for d in decks['Deck'].values:
+            tmp = pd.DataFrame(columns=['Deck', 'Elo', 'Date', 'helper'], index=range(len(dates)))
+            tmp['Date'] = dates
+            tmp['helper'] = np.linspace(0, len(dates)-1, len(dates))
+            tmp['Deck'] = d
+            tmp['Elo'] = decks[decks['Deck']==d][dates].to_numpy().squeeze()
+            df_plot.append(tmp)
+        # combine deck dataframe to a big dataframe
+        df_plot = pd.concat(df_plot, axis=0)
+        # set empty historic elo (value:0) to NaN and drop them
+        df_plot[df_plot['Elo']==0]=np.nan
+        #df_plot = df_plot.dropna()
+        elo_min = df_plot['Elo'].min()-15
+        elo_max = df_plot['Elo'].max()+15
+        df_plot['Elo'] = df_plot['Elo'].fillna(0)
+        df_plot = df_plot.sort_values(by='helper', ascending=True).reset_index(drop=True)
+        # generate a plotly figure with elo ratings
+        fig = px.line(df_plot, x="Date", y="Elo", color='Deck', line_shape='spline')
+        # update figure traces for hover effects and line width
+        fig.update_traces(textposition="bottom right", line=dict(width=5), hovertemplate=None)
+        # update figure layout
+        fig.update_layout(font_size=15, title='Eloverlauf', xaxis_title='Datum', yaxis_title='Elo',
+                        hovermode="x unified",yaxis=dict(range=[elo_min, elo_max]))
+
         return fig

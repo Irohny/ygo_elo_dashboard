@@ -1,6 +1,8 @@
 import streamlit_authenticator as stauth
 import streamlit as st
 import time
+
+from DataModel.utils.load_data import load_data
 from DataModel.DeckModel import DeckModel
 from DataModel.TournamentModel import TournamentModel
 
@@ -186,11 +188,10 @@ class InputPage:
 		# submit
 		if form.form_submit_button("Submit"):
 			dm.update_stats(deck_choose, in_stats, modif_in, in_stats_type, new_type, df_elo, hist_cols, save_cols)
-			self.__after_update(inputs[3])			
+			self.__after_update(inputs[3])	
 
-	def __after_update(self, pos):
-		st.session_state['reload_flag'] = True
-		pos.success('Update erfolgreich!!')
+	def __after_update(self, pos:st)->None:
 		time.sleep(2)
-		st.experimental_rerun()
-				
+		pos.success('Update erfolgreich!!')
+		load_data()
+		pos.success('Daten neu geladen!!')					
