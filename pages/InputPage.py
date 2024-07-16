@@ -1,7 +1,7 @@
-import streamlit_authenticator as stauth
 import streamlit as st
 import time
 
+from utils.check_roles import check_roles
 from DataModel.utils.load_data import load_data
 from DataModel.DeckModel import DeckModel
 from DataModel.TournamentModel import TournamentModel
@@ -15,8 +15,12 @@ class InputPage:
 		self.deck_model = DeckModel(load_data=False)
 		self.tourn_model = TournamentModel(load_data=False)
 
-		#self.__login()
-		self.__build_page_layout(st.session_state['deck_data'], 
+		if not st.session_state['login']:
+			st.error('Bitte melede dich an um diese Seite zu nutzen!')
+		elif not check_roles(['admin', 'reporter']):
+			st.error('Du bist nicht berechtigt diese Seite zu nutzen')
+		else:
+			self.__build_page_layout(st.session_state['deck_data'], 
 						   st.session_state['history_columns'], 
 						   st.session_state['columns'])
 
@@ -26,25 +30,6 @@ class InputPage:
 		#else:
 			#st.header('Bitte logge dich ein.')
 			#self.__login()
-
-	def __login(self):
-		creds = {'usernames':{}}
-		for u,p in zip(st.secrets['users'], st.secrets['pwd']):
-			creds['usernames'][u] = {'name':u, 'password':p}
-		
-		authenticator = stauth.Authenticate({'credintials':creds, 'cookie':{}})
-
-		name, authentication_status, username = authenticator.login(location='sidebar')
-
-		if authentication_status:
-			authenticator.logout('Logout', 'main')
-			st.session_state['login'] = True
-		elif authentication_status == False:
-			st.error('Username/password is incorrect')
-			st.session_state['login'] = False
-		elif authentication_status is None:
-			st.warning('Please enter your username and password')
-			st.session_state['login'] = False
 	
 	def __result_page(self, df_elo, hist_cols, save_cols):
 		'''

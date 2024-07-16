@@ -3,7 +3,7 @@ import streamlit as st
 from DataModel.utils.load_data import load_data
 from streamlit_navigation_bar import st_navbar
 from NavBar import get_pages
-from pages.utils.layouts import header_styling
+from utils.layouts import header_styling
 
 import pages as p
 
@@ -35,3 +35,5 @@ if __name__ == '__main__':
         p.DeckComparisionPage()
     elif page == 'Eingabe':
         p.InputPage()
+    elif page == 'Login':
+        p.LoginPage()

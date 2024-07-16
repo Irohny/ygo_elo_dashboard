@@ -11,7 +11,8 @@ def load_data()->None:
         #st.session_state['tournament'] = 'Alle'
         st.session_state['deck_i'] = ''
         st.session_state['deck'] = []
-        st.session_state['login'] = None
+        st.session_state['login'] = False
+        st.session_state['user_roles'] = []
         
     # Deck Data
     dm = DeckModel()

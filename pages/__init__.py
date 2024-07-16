@@ -5,3 +5,4 @@ from pages.DetailedInfoPage import DetailedInfoPage
 from pages.DeckBuilderPage import DeckBuilderPage
 from pages.DeckComparisonPage import DeckComparisionPage
 from pages.InputPage import InputPage
+from pages.LoginPage import LoginPage
