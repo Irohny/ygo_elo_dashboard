@@ -17,7 +17,7 @@ def create_input_tab(st_obj: st):
     :param st_obj: streamlit tab object for placing in the right tab
     """
     cols = st_obj.columns([3, 1])
-    dbp.tagging_editor(cols[0], card_model, gv.CARD_TAGS)
+    dbp.tagging_editor(cols[0], gv.CARD_TAGS)
     tabs = cols[1].tabs(["Suchfeld", "Nexus Import"])
     dbp.search_field_input(tabs[0], card_model)
     dbp.nexus_list_input(tabs[1], feat_cols, ygo_db)
@@ -65,7 +65,14 @@ dbp.database_handler(
     ygo_db,
     feat_cols,
 )
-tabs = st.tabs(["Eingabe", "Deck Breakdown", "Deck Analyse"])
-create_input_tab(tabs[0])
-dbp.create_breakdown(tabs[1])
-dbp.create_analysis(tabs[2])
+segment = st.segmented_control('BlaBla', ["Eingabe", "Deck Breakdown", "Deck Analyse"], 
+                                default='Eingabe', 
+                                label_visibility='collapsed')
+if segment == 'Eingabe':
+    create_input_tab(st)
+elif segment == 'Deck Breakdown':
+    dbp.create_breakdown(st)
+elif segment == 'Deck Analyse':
+    dbp.create_analysis(st)
+else:
+    st.error('Keine Auswahl getroffen.')

@@ -1,24 +1,23 @@
 import streamlit as st
-from DataModel import YgoCradModel
 
-
-def tagging_editor(st_obj: st, card_model: YgoCradModel, tags: list):
+def tagging_editor(st_obj: st, tags: list):
     """
     Method for tagging cards for further deck analysis
     :param st_obj: streamlit object for placing
     """
     st_obj = st_obj.container(border=True)
-    head_cols = st_obj.columns([4, 1])
+    tabs = st_obj.tabs(['Main Deck', 'Extra Deck', 'Side Deck'])
+    
+    head_cols = tabs[0].columns([4, 1])
     head_cols[0].markdown("Main Deck:")
     head_cols[1].markdown(
         f"""Monster: {count_frametypes(st.session_state['main_deck'], ['effect'])}/ 
                         Zauber: {count_frametypes(st.session_state['main_deck'], ['spell'])}/
                         Fallen: {count_frametypes(st.session_state['main_deck'], ['trap'])}"""
     )
-    st_obj.markdown("---")
-    vis_and_tagging(st_obj, "main_deck", card_model, tags)
+    vis_data_editor(tabs[0], "main_deck", tags)
 
-    head_cols = st_obj.columns([4, 1])
+    head_cols = tabs[1].columns([4, 1])
     head_cols[0].markdown("Extra Deck")
     head_cols[1].markdown(
         f"""Synchro: {count_frametypes(st.session_state['extra_deck'], ['synchro'])}/ 
@@ -26,24 +25,40 @@ def tagging_editor(st_obj: st, card_model: YgoCradModel, tags: list):
                         XYZ: {count_frametypes(st.session_state['extra_deck'], ['xyz'])}/
                         Link: {count_frametypes(st.session_state['extra_deck'], ['link'])}"""
     )
-    st_obj.markdown("---")
-    vis_and_tagging(st_obj, "extra_deck", card_model, tags)
+    vis_data_editor(tabs[1], "extra_deck", tags)
 
-    head_cols = st_obj.columns([4, 1])
+    head_cols = tabs[2].columns([4, 1])
     head_cols[0].markdown("Side Deck:")
     head_cols[1].markdown(
         f"""Monster: {count_frametypes(st.session_state['side_deck'], ['effect', 'synchro', 'xyz', 'fusion', 'link'])}/ 
                         Zauber: {count_frametypes(st.session_state['side_deck'], ['spell'])}/
                         Fallen: {count_frametypes(st.session_state['side_deck'], ['trap'])}"""
     )
-    st_obj.markdown("---")
-    vis_and_tagging(st_obj, "side_deck", card_model, tags)
+    vis_data_editor(tabs[2], "side_deck", tags)
 
+def vis_data_editor(st_obj: st, deck_part: str, tags:list[str]):
+    configs = {
+        "image":st.column_config.ImageColumn('Preview', width='small'),
+        "Karte":st.column_config.TextColumn("Name", width='large'),
+        "Anzahl":st.column_config.NumberColumn("Anzahl", width='medium', min_value=0, max_value=3, step=1),
+        "Tag":st.column_config.SelectboxColumn("Tag", options=tags, width='medium'),
+    }
+    st_obj.data_editor(st.session_state[deck_part][configs.keys()], 
+                    column_config=configs, 
+                    hide_index=True,
+                    on_change=changes2session_state,
+                    key=f"data_editor_{deck_part}")
+
+def changes2session_state():
+    for deck_part in ['main_deck', 'side_deck', 'extra_deck']:
+        if len(st.session_state[f'data_editor_{deck_part}']['edited_rows']) > 0:
+            for idx, row in st.session_state[f'data_editor_{deck_part}']['edited_rows'].items():
+                for col, val in row.items():
+                    st.session_state[deck_part].at[idx, col] = val
 
 def vis_and_tagging(
     st_obj: st,
     deck_part: str,
-    card_model: YgoCradModel,
     tags: list,
     img_per_row: int = 6,
 ):
@@ -52,11 +67,11 @@ def vis_and_tagging(
     """
     main_cols = st_obj.columns(img_per_row)
     for i, card in st.session_state[deck_part].iterrows():
-        img = card_model.get_image(card["image"])
+        img = st.session_state['ygo_pro_model'].get_image(card["image"])
         pos, row = i % img_per_row, i // img_per_row
         cont = main_cols[pos].container(border=True)
         cont.text(card["Karte"])
-        # cont.text(f"{card['Anzahl']}, {card['Tag']}")
+        
         cont.image(img)
         modifier = cont.popover(f"{card['Anzahl']}, {card['Tag']}")
         modifier.number_input(

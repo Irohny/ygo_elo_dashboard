@@ -64,7 +64,7 @@ def create_breakdown(tab: st):
     if not df.empty:
         df["frameType"] = df["frameType"].str.title()
         plot_cols[2].plotly_chart(
-            vis.ploty_bar(df, "frameType", "Anzahl", True, "Extra-Deck"),
+            vit.ploty_bar(df, "frameType", "Anzahl", True, "Extra-Deck"),
             use_container_width=True,
         )
 

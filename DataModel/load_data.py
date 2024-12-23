@@ -3,7 +3,7 @@ import streamlit as st
 from .HistoryModel import HistoryModel
 from .EloModel import EloModel
 from .TournamentModel import TournamentModel
-
+from .YgoCradModel import YgoCardModel
 
 def load_data():
     if "login" not in st.session_state:
@@ -14,10 +14,13 @@ def load_data():
     st.cache_data.clear()
     dm_elo = EloModel()
 
+    # load data models
     st.session_state["elo_model"] = dm_elo
-    st.session_state["history_model"]: HistoryModel = HistoryModel()
+    st.session_state["history_model"] = HistoryModel()
     st.session_state["tournament_model"] = TournamentModel()
+    st.session_state["ygo_pro_model"] = YgoCardModel()
 
+    # setup data for dashboard
     paused_decks = st.session_state["history_model"].get_paused_deckIDs()
     paused_decks.set_index("DeckID", inplace=True)
 
