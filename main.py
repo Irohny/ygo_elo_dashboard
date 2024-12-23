@@ -1,39 +1,41 @@
 import streamlit as st
 
-from DataModel.utils.load_data import load_data
-from streamlit_navigation_bar import st_navbar
-from NavBar import get_pages
-from utils.layouts import header_styling
+from DataModel.load_data import load_data
 
-import pages as p
-
-if __name__ == '__main__':
-    st.set_page_config(page_title='YGO-Elo-Dashboard', 
-                       page_icon=':trophy:',
-                       layout='wide',
-                       initial_sidebar_state='collapsed')
-    if 'deck_data' not in st.session_state:
+if __name__ == "__main__":
+    st.set_page_config(
+        page_title="YGO-Elo-Dashboard",
+        page_icon=":trophy:",
+        layout="wide",
+    )
+    if "deck_data" not in st.session_state:
         load_data()
+    st.logo("Deck_Icons/ygo_icon.png", size="large")
+    st.sidebar.markdown("Version: 2.0.0")
+    pg = st.navigation(
+        {
+            "Elo Dshboard": [
+                st.Page("views/StatsPage.py", title=" Hauptseite"),
+                st.Page("views/PlayerPage.py", title=" Spieler"),
+                st.Page("views/DeckComparisonPage.py", title=" Deckvergleich"),
+                st.Page("views/DetailedInfoPage.py", title=" Deck Details"),
+                st.Page(
+                    "views/TablePage.py",
+                    title=" Tabelle",
+                ),
+            ],
+            "Deckbuilding": [
+                st.Page(
+                    "views/DeckBuilderPage.py",
+                    title=" Deck Builder",
+                )
+            ],
+            "Sammlung": [],
+            "Einstellungen": [
+                st.Page("views/InputPage.py", title=" Eingabe"),
+                st.Page("views/LoginPage.py", title=" Login"),
+            ],
+        }
+    )
 
-    page_dict = get_pages()
-    page = st_navbar(list(page_dict.keys()), styles=header_styling(),
-                     #logo_path='Deck_Icons/ygo_icon.svg', 
-                     #logo_page='Hauptseite',
-                     options = {"show_menu": True,"show_sidebar": False,}) 
-    
-    if page == 'Hauptseite':
-        p.StatsPage()
-    elif page == 'Spieler':
-        p.PlayerPage()
-    elif page == 'Tabelle':
-        p.TablePage()
-    elif page == 'Deck Details':
-        p.DetailedInfoPage()
-    elif page == 'Deck Builder':
-        p.DeckBuilderPage()
-    elif page == 'Deckvergleich':
-        p.DeckComparisionPage()
-    elif page == 'Eingabe':
-        p.InputPage()
-    elif page == 'Login':
-        p.LoginPage()
+    pg.run()
